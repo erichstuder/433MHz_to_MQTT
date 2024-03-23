@@ -12,8 +12,8 @@ RUN apt update && \
     cargo install elf2uf2-rs@2.0.0 && \
     cargo install flip-link@0.1.2
 
-# Do a dummy build to pre-install dependencies. This makes the real build much faster.
+# Pre-fetch dependencies with a dummy project. This makes the later build much faster.
 WORKDIR /usr/dummy
 RUN cargo init
 COPY Cargo.toml .
-RUN cargo build
+RUN cargo fetch

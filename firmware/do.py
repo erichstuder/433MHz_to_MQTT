@@ -14,9 +14,17 @@ def parse_arguments():
 	                    action='store_true',
 	                    help='Build the project.')
 
+	parser.add_argument('--upload', '-u',
+	                    action='store_true',
+	                    help='Upload the project to RPI after rebuild.')
+
 	parser.add_argument('--pseudo_tty', '-p',
 	                    action='store_true',
 	                    help='Colorfull output.')
+
+	parser.add_argument('--keep_open', '-k',
+	                    action='store_true',
+	                    help='Enter the command line of the container.')
 
 	parser.add_argument('--verbose', '-v',
 	                    action='store_true',
@@ -35,10 +43,14 @@ def build_container(container_tag):
 
 	if not arguments.verbose:
 		args.append('--quiet')
+		stdout = subprocess.DEVNULL
+	else:
+		stdout = None
 
 	args.extend(['--file', 'Dockerfile', '.'])
 
-	return subprocess.run(args)
+	print('    building... please wait')
+	return subprocess.run(args, stdout=stdout)
 
 
 def run_container(container_tag):
@@ -48,7 +60,11 @@ def run_container(container_tag):
 	docker_volume_dir = '/usr/firmware'
 	host_volume_dir = os.getcwd()
 
-	if arguments.build:
+	if arguments.keep_open:
+		commands = 'bash'
+	elif arguments.upload:
+		commands = 'set -e\n cargo run'
+	elif arguments.build:
 		commands = 'set -e\n cargo build'
 	else:
 		return #do nothing
@@ -56,7 +72,8 @@ def run_container(container_tag):
 	return subprocess.run(['docker',
 		'run',
 		'--rm',
-		'--name', 'cucumber_' + current_time,
+		'--name', 'firmware_' + current_time,
+		'--volume', '/media/'+os.environ.get('USER')+':/media/user/',
 		'--volume', host_volume_dir + ':' + docker_volume_dir,
 		'--workdir', docker_volume_dir,
 		'-i' + ('t' if arguments.pseudo_tty else ''),
@@ -65,7 +82,7 @@ def run_container(container_tag):
 	])
 
 
-def handle_result(result):
+def assert_result(result):
 	if result.returncode != 0:
 		if arguments.verbose:
 			print(result)
@@ -81,10 +98,10 @@ def main():
 		print('Container Tag: ' + container_tag)
 
 	result = build_container(container_tag)
-	handle_result(result)
+	assert_result(result)
 
 	result = run_container(container_tag)
-	handle_result(result)
+	assert_result(result)
 
 
 if __name__ == "__main__":

@@ -62,5 +62,7 @@ async fn main(spawner: Spawner) {
         info!("led off!");
         control.gpio_set(0, false).await;
         Timer::after(delay).await;
+
+        embassy_rp::rom_data::reset_to_usb_boot(0, 0);
     }
 }

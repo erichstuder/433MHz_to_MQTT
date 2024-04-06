@@ -6,7 +6,6 @@ import argparse
 import os
 import subprocess
 import datetime
-import pyudev
 import serial
 import time
 
@@ -67,6 +66,7 @@ def run_container(container_tag):
 		commands = 'bash'
 	elif arguments.upload:
 		# TODO: Maybe we could send the device into bootloader mode directly from inside the container?
+		import pyudev # Import only here, as this file is only used on github runners without hw-access.
 		udev = pyudev.Context()
 		for usb_device in  udev.list_devices(subsystem="usb"):
 			if usb_device.attributes.get('manufacturer') == b'github.com/erichstuder' and usb_device.attributes.get('product') == b'433MHz_to_MQTT':

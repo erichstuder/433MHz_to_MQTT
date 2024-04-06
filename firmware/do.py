@@ -66,7 +66,7 @@ def run_container(container_tag):
 		commands = 'bash'
 	elif arguments.upload:
 		# TODO: Maybe we could send the device into bootloader mode directly from inside the container?
-		import pyudev # Import only here, as this file is only used on github runners without hw-access.
+		import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.
 		udev = pyudev.Context()
 		for usb_device in  udev.list_devices(subsystem="usb"):
 			if usb_device.attributes.get('manufacturer') == b'github.com/erichstuder' and usb_device.attributes.get('product') == b'433MHz_to_MQTT':

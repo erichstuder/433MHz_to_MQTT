@@ -78,7 +78,8 @@ def run_container(container_tag):
 						my_serial.write("bootloader".encode())
 						my_serial.close()
 						time.sleep(4) #wait for the device to enter bootloader mode
-						print("Info: Device was sent into bootloader mode.")
+						if arguments.verbose:
+							print("Info: Device was sent into bootloader mode.")
 
 		commands = 'set -e\n cargo run'
 	elif arguments.build:

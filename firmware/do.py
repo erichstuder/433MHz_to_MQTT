@@ -6,6 +6,9 @@ import argparse
 import os
 import subprocess
 import datetime
+import pyudev
+import serial
+import time
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description='run cucumber')
@@ -63,6 +66,20 @@ def run_container(container_tag):
 	if arguments.keep_open:
 		commands = 'bash'
 	elif arguments.upload:
+		# TODO: Maybe we could send the device into bootloader mode directly from inside the container?
+		udev = pyudev.Context()
+		for usb_device in  udev.list_devices(subsystem="usb"):
+			if usb_device.attributes.get('manufacturer') == b'github.com/erichstuder' and usb_device.attributes.get('product') == b'433MHz_to_MQTT':
+				for tty_device in  udev.list_devices(subsystem="tty"):
+					if tty_device.sys_path.startswith(usb_device.sys_path):
+						my_serial = serial.Serial(None)
+						my_serial.port = tty_device.device_node
+						my_serial.open()
+						my_serial.write("bootloader".encode())
+						my_serial.close()
+						time.sleep(4) #wait for the device to enter bootloader mode
+						print("Info: Device was sent into bootloader mode.")
+
 		commands = 'set -e\n cargo run'
 	elif arguments.build:
 		commands = 'set -e\n cargo build'

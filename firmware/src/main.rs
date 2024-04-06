@@ -29,8 +29,8 @@ async fn main(_spawner: embassy_executor::Spawner) {
 
     // Create embassy-usb Config
     let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
-    config.manufacturer = Some("Embassy");
-    config.product = Some("USB-serial example");
+    config.manufacturer = Some("github.com/erichstuder");
+    config.product = Some("433MHz_to_MQTT");
     config.serial_number = Some("12345678");
     config.max_power = 100;
     config.max_packet_size_0 = 64;

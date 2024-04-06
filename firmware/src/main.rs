@@ -5,32 +5,30 @@
 #![no_std]
 #![no_main]
 
-use defmt::{info, panic};
-use embassy_executor::Spawner;
-use embassy_futures::join::join;
-use embassy_rp::bind_interrupts;
-use embassy_rp::peripherals::USB;
-use embassy_rp::usb::{Driver, Instance, InterruptHandler};
-use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
-use embassy_usb::driver::EndpointError;
-use embassy_usb::{Builder, Config};
+//use defmt::{info, panic};
 use {defmt_rtt as _, panic_probe as _};
+//use embassy_executor::Spawner;
+use embassy_futures::join::join;
+//use embassy_rp::usb::{Driver, Instance, InterruptHandler};
+//use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
+use embassy_usb::driver::EndpointError;
+//use embassy_usb::{Builder, Config};
 
-bind_interrupts!(struct Irqs {
-    USBCTRL_IRQ => InterruptHandler<USB>;
+embassy_rp::bind_interrupts!(struct Irqs {
+    USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
 
 #[embassy_executor::main]
-async fn main(_spawner: Spawner) {
-    info!("Hello there!");
+async fn main(_spawner: embassy_executor::Spawner) {
+    //info!("Hello there!");
 
     let p = embassy_rp::init(Default::default());
 
     // Create the driver, from the HAL.
-    let driver = Driver::new(p.USB, Irqs);
+    let driver = embassy_rp::usb::Driver::new(p.USB, Irqs);
 
     // Create embassy-usb Config
-    let mut config = Config::new(0xc0de, 0xcafe);
+    let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Embassy");
     config.product = Some("USB-serial example");
     config.serial_number = Some("12345678");
@@ -51,9 +49,9 @@ async fn main(_spawner: Spawner) {
     let mut bos_descriptor = [0; 256];
     let mut control_buf = [0; 64];
 
-    let mut state = State::new();
+    let mut state = embassy_usb::class::cdc_acm::State::new();
 
-    let mut builder = Builder::new(
+    let mut builder = embassy_usb::Builder::new(
         driver,
         config,
         &mut device_descriptor,
@@ -64,7 +62,7 @@ async fn main(_spawner: Spawner) {
     );
 
     // Create classes on the builder.
-    let mut class = CdcAcmClass::new(&mut builder, &mut state, 64);
+    let mut class = embassy_usb::class::cdc_acm::CdcAcmClass::new(&mut builder, &mut state, 64);
 
     // Build the builder.
     let mut usb = builder.build();
@@ -76,9 +74,9 @@ async fn main(_spawner: Spawner) {
     let echo_fut = async {
         loop {
             class.wait_connection().await;
-            info!("Connected");
+            //info!("Connected");
             let _ = echo(&mut class).await;
-            info!("Disconnected");
+            //info!("Disconnected");
         }
     };
 
@@ -98,13 +96,18 @@ impl From<EndpointError> for Disconnected {
     }
 }
 
-async fn echo<'d, T: Instance + 'd>(class: &mut CdcAcmClass<'d, Driver<'d, T>>) -> Result<(), Disconnected> {
+async fn echo<'d, T: embassy_rp::usb::Instance + 'd>(class: &mut embassy_usb::class::cdc_acm::CdcAcmClass<'d, embassy_rp::usb::Driver<'d, T>>) -> Result<(), Disconnected> {
     let mut buf = [0; 64];
     loop {
         let n = class.read_packet(&mut buf).await?;
         let data = &buf[..n];
-        info!("data: {:x}", data);
+        //info!("data: {:x}", data);
         class.write_packet(data).await?;
-        class.write_packet(b"from pico").await?;
+        class.write_packet(b"\nfrom pico\n").await?;
+
+        if data.eq(b"bootloader") {
+            class.write_packet(b"entering bootloader now\n").await?;
+            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
+        }
     }
 }

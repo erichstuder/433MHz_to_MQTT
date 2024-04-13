@@ -28,5 +28,6 @@ RUN git clone --depth 1 --branch 1.5.1 https://github.com/raspberrypi/pico-sdk.g
 # Pre-fetch dependencies with a dummy project. This makes the later build much faster.
 WORKDIR /usr/dummy
 RUN cargo init
-COPY Cargo.toml .
+COPY firmware/Cargo.toml .
+COPY app/ .
 RUN cargo fetch

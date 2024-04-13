@@ -103,7 +103,8 @@ async fn echo<'d, T: embassy_rp::usb::Instance + 'd>(class: &mut embassy_usb::cl
         let data = &buf[..n];
         //info!("data: {:x}", data);
         class.write_packet(data).await?;
-        class.write_packet(b"\nfrom pico\n").await?;
+        class.write_packet(b" from pico\n").await?;
+        class.write_packet(&app::ten()).await?;
 
         if data.eq(b"bootloader") {
             class.write_packet(b"entering bootloader now\n").await?;

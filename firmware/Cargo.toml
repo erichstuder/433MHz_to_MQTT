@@ -1,11 +1,11 @@
-# workspace = { members = ["lib"] }
+#workspace = { members = ["app"] }
 [package]
 name = "firmware"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
+app = { path = "../app" }
 #embassy-embedded-hal = { version = "0.1.0", features = ["defmt"] }
 #embassy-sync = { version = "0.5.0", features = ["defmt"] }
 embassy-executor = { version = "0.5.0", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers"] }

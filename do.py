@@ -59,7 +59,7 @@ def run_container(container_tag):
 
 	current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss');
 
-	docker_volume_dir = '/usr/firmware'
+	docker_volume_dir = '/usr/433MHz_to_MQTT'
 	host_volume_dir = os.getcwd()
 
 	if arguments.keep_open:
@@ -81,9 +81,9 @@ def run_container(container_tag):
 						if arguments.verbose:
 							print("Info: Device was sent into bootloader mode.")
 
-		commands = 'set -e\n cargo run'
+		commands = 'set -e\n cd firmware \n cargo run'
 	elif arguments.build:
-		commands = 'set -e\n cargo build'
+		commands = 'set -e\n cd firmware \n cargo build'
 	else:
 		return #do nothing
 

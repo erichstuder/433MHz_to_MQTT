@@ -16,6 +16,10 @@ def parse_arguments():
 	                    action='store_true',
 	                    help='Build the project.')
 
+	parser.add_argument('--test', '-t',
+	                    action='store_true',
+	                    help='Test the project.')
+
 	parser.add_argument('--upload', '-u',
 	                    action='store_true',
 	                    help='Upload the project to RPI after rebuild.')
@@ -84,6 +88,8 @@ def run_container(container_tag):
 		commands = 'set -e\n cd firmware \n cargo run'
 	elif arguments.build:
 		commands = 'set -e\n cd firmware \n cargo build'
+	elif arguments.test:
+		commands = 'set -e\n cd app \n cargo test'
 	else:
 		return #do nothing
 

@@ -10,6 +10,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: |
-          cd app
-          python3 do.py --test --verbose
+      - run: python3 do.py --test --verbose

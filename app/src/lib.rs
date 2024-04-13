@@ -10,6 +10,6 @@ mod tests {
 
     #[test]
     fn my_first_test() {
-        assert_eq!(ten(), [b'1',b'1']);
+        assert_eq!(ten(), [b'1',b'0']);
     }
 }

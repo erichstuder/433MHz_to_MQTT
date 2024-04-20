@@ -6,26 +6,31 @@
 
 #![cfg_attr(not(test), no_std)]
 
+#[cfg(test)]
+use mockall::*;
 
-pub type SendMessage = fn(msg: &[u8]);
-pub type EnterBootloaderCallback = fn();
+#[cfg(test)]
+use mockall::predicate::*;
 
-pub struct Parser {
-    enter_bootloader: EnterBootloaderCallback,
-    send_message: SendMessage,
+#[cfg_attr(test, automock)]
+pub trait ParserTrait {
+    fn send_message(&self, msg: &[u8]);
+    fn enter_bootlaoder(&self);
 }
 
-impl Parser {
-    pub fn send_message(&self, msg: &[u8]) {
-        (self.send_message)(msg);
+pub struct Parser<'a> {
+     parser_trait: &'a dyn ParserTrait,
+}
+
+impl Parser<'_> {
+    pub fn new(parser_trait: &'static impl ParserTrait) {
+        Self {parser_trait};
     }
 
     pub fn parse_message(&self, msg: &[u8]) {
         if msg.eq(b"enter bootloader") {
-            // class.write_packet(b"entering bootloader now\n").await?;
-            // embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-            (self.send_message)(b"entering bootloader now\n");
-            (self.enter_bootloader)();
+            self.parser_trait.send_message(b"entering bootloader now\n");
+            self.parser_trait.enter_bootlaoder();
         }
     }
 }
@@ -34,21 +39,17 @@ impl Parser {
 mod tests {
     use super::*;
 
-    fn send_message_mock(_msg: &[u8]) {
-        println!("send_message_mock");
-    }
-
-    fn enter_bootloader_mock() {
-        println!("Heeeeelllllo");
-    }
-
     #[test]
     fn enter_bootloader_test() {
-        let parser = Parser {
-            send_message: send_message_mock,
-            enter_bootloader: enter_bootloader_mock,
-        };
-        parser.parse_message(b"enter bootloader");
-        assert_eq!(1,2);//let it fail
+        let mut mock = MockParserTrait::new();
+
+        let text = b"Hello";
+
+        mock.expect_send_message()
+            .times(1)
+            .withf(|msg: &[u8]| msg.eq(text))
+            .return_const(());
+
+        mock.send_message(text);
     }
 }

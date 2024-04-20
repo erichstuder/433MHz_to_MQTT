@@ -10,4 +10,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: python3 do.py --test --verbose
+      - run: python3 do.py --test --verbose --pseudo_tty_disable

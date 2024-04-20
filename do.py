@@ -24,9 +24,9 @@ def parse_arguments():
 	                    action='store_true',
 	                    help='Upload the project to RPI after rebuild.')
 
-	parser.add_argument('--pseudo_tty', '-p',
+	parser.add_argument('--pseudo_tty_disable', '-p',
 	                    action='store_true',
-	                    help='Colorfull output.')
+	                    help='Disable colorfull output.')
 
 	parser.add_argument('--keep_open', '-k',
 	                    action='store_true',
@@ -34,7 +34,7 @@ def parse_arguments():
 
 	parser.add_argument('--verbose', '-v',
 	                    action='store_true',
-	                    help='Enable verbose output.')
+	                    help='Verbose output.')
 
 	global arguments
 	arguments = parser.parse_args()
@@ -102,7 +102,7 @@ def run_container(container_tag):
 		'--volume', host_volume_dir + ':' + docker_volume_dir,
 		'--volume', '/dev/bus/usb:/dev/bus/usb',
 		'--workdir', docker_volume_dir,
-		'-i' + ('t' if arguments.pseudo_tty else ''),
+		'-i' + ('' if arguments.pseudo_tty_disable else 't'),
 		container_tag,
 		'bash', '-c', commands
 	])

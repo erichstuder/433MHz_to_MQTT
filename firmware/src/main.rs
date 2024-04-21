@@ -13,10 +13,12 @@ use embassy_futures::join::join;
 //use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
 //use embassy_usb::{Builder, Config};
+use app;
 
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
+
 
 #[embassy_executor::main]
 async fn main(_spawner: embassy_executor::Spawner) {
@@ -98,16 +100,26 @@ impl From<EndpointError> for Disconnected {
 
 async fn echo<'d, T: embassy_rp::usb::Instance + 'd>(class: &mut embassy_usb::class::cdc_acm::CdcAcmClass<'d, embassy_rp::usb::Driver<'d, T>>) -> Result<(), Disconnected> {
     let mut buf = [0; 64];
+
+    struct EnterBootloaderImpl;
+
+    impl app::EnterBootloader for EnterBootloaderImpl {
+        fn call(&mut self) {
+            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
+        }
+    }
+
+    let mut parser = app::Parser::new(EnterBootloaderImpl);
+
     loop {
         let n = class.read_packet(&mut buf).await?;
         let data = &buf[..n];
-        //info!("data: {:x}", data);
+        class.write_packet(b"echo: ").await?;
         class.write_packet(data).await?;
-        class.write_packet(b" from pico\n").await?;
+        class.write_packet(b"\n").await?;
 
-        if data.eq(b"bootloader") {
-            class.write_packet(b"entering bootloader now\n").await?;
-            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-        }
+        let answer = parser.parse_message(data);
+        class.write_packet(answer).await?;
+        class.write_packet(b"\n\n").await?;
     }
 }

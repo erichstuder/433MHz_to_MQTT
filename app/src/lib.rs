@@ -6,43 +6,73 @@
 
 #![cfg_attr(not(test), no_std)]
 
-extern crate alloc;
-use alloc::boxed::Box;
+#[cfg(test)]
+use mockall::automock;
 
-pub struct Parser {
-    send_message: Box<dyn FnMut(&[u8])>,
-    enter_bootloader: Box<dyn FnMut()>,
+#[cfg_attr(test, automock)]
+pub trait EnterBootloader {
+    fn call(&mut self);
 }
 
-impl Parser {
-    pub fn parse_message(&mut self, msg: &[u8]) {
+pub struct Parser<E: EnterBootloader> {
+    enter_bootloader: E,
+}
+
+impl<E: EnterBootloader> Parser<E> {
+    pub fn new(enter_bootloader: E) -> Self {
+        Self {
+            enter_bootloader,
+        }
+    }
+
+    pub fn parse_message(&mut self, msg: &[u8]) -> &[u8] {
         if msg.eq(b"enter bootloader") {
-            (self.send_message)(b"entering bootloader now\n");
-            (self.enter_bootloader)();
+            self.enter_bootloader.call();
+            // Note: probably this message won't be seen, because of immediate restart.
+            b"entering bootloader now"
+        }
+        else {
+            b"nothing to parse"
         }
     }
 }
 
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{Ordering, AtomicBool};
+    //use mockall::predicate::*;
 
     #[test]
-    // TODO: This is not a great test. But as I'm still learning, I leave it like this for now.
     fn test_enter_bootloader() {
-        fn mock_send_message(_msg: &[u8]) {}
-        //static mut RESULT_MSG: &[u8];
-        static ENTER_BOOTLOADER_CALLED: AtomicBool = AtomicBool::new(false);
+        //let mut mock_send_message = MockSendMessage::new();
+        let mut mock_enter_bootloader = MockEnterBootloader::new();
 
-        let mut parser = Parser {
-            send_message: Box::new(mock_send_message),
-            //send_message: Box::new(|msg: &[u8]| RESULT_MSG = msg),
-            enter_bootloader: Box::new(|| ENTER_BOOTLOADER_CALLED.store(true, Ordering::Relaxed)),
-        };
+        // mock_send_message.expect_call()
+        //     .with(eq(b"entering bootloader now\n" as &[u8]))
+        //     .times(1)
+        //     .returning(|_| ());
 
-        parser.parse_message(b"enter bootloader");
+        mock_enter_bootloader.expect_call()
+            .times(1)
+            .returning(|| ());
 
-        assert!(ENTER_BOOTLOADER_CALLED.load(Ordering::Relaxed));
+        let mut parser = Parser::new(
+            //mock_send_message,
+            mock_enter_bootloader,
+        );
+
+        let answer = parser.parse_message(b"enter bootloader");
+        assert_eq!(answer, b"entering bootloader now");
+    }
+
+    #[test]
+    fn test_nothing_to_parse() {
+        let mut parser = Parser::new(
+            MockEnterBootloader::new(),
+        );
+
+        let answer = parser.parse_message(b"no command");
+        assert_eq!(answer, b"nothing to parse");
     }
 }

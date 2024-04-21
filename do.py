@@ -79,7 +79,7 @@ def run_container(container_tag):
 						my_serial = serial.Serial(None)
 						my_serial.port = tty_device.device_node
 						my_serial.open()
-						my_serial.write("bootloader".encode())
+						my_serial.write("enter bootloader".encode())
 						my_serial.close()
 						time.sleep(4) #wait for the device to enter bootloader mode
 						if arguments.verbose:

@@ -4,22 +4,27 @@ System Scope and Context
 433MHz_to_MQTT receives the data from a 433MHz Sender and forwards it to an MQTT Broker.
 
 .. uml::
-
    @startuml
-   skinparam component<<SUD>> {
-     BackgroundColor Khaki
-   }
-
    component [433MHz Sender]
-   component [MQTT Broker]
-   component [433MHz_to_MQTT]<<SUD>> {
+   component [433MHz_to_MQTT]<<SUD>> #Khaki {
+      port 433MHz_Input
+      port WiFi
       component [433MHz Receiver]
       component [RPi Pico W]
    }
+   component [Network] {
+      component [MQTT Broker]
+      port MQTT
+   }
 
-   [433MHz Sender] .r.> [433MHz Receiver] : data
-   [433MHz Receiver] .r.> [RPi Pico W] : data
-   [RPi Pico W] .r.> [MQTT Broker] : data
+   [433MHz Sender] --( 433MHz_Antenna
+   433MHz_Antenna -- 433MHz_Input
+   433MHz_Input -- [433MHz Receiver]
+   [433MHz Receiver] -- [RPi Pico W]
+   [RPi Pico W] -- WiFi
+   WiFi --( WiFi_Antenna
+   WiFi_Antenna -- MQTT
+   MQTT -- [MQTT Broker]
    @enduml
 
 +-----------------+------------------------------------------------+

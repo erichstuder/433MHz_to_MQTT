@@ -17,5 +17,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: HTML Documentation
+          name: documentation
           path: doc/build

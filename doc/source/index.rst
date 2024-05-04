@@ -10,6 +10,7 @@ Welcome to 433MHz_to_MQTT's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   doc
 
 
 Indices and tables

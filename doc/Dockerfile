@@ -1,7 +1,7 @@
 FROM sphinxdoc/sphinx:latest
 
 RUN apt update && \
-    apt install -y python3-sphinxcontrib.plantuml graphviz wget
+    apt install -y python3-sphinxcontrib.plantuml graphviz python3-sphinx-autobuild wget
 
 RUN pip3 install sphinxcontrib-plantuml
 

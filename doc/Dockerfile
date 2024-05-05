@@ -1,11 +1,14 @@
 FROM sphinxdoc/sphinx:latest
 
 RUN apt update && \
-    apt install -y python3-sphinxcontrib.plantuml graphviz python3-sphinx-autobuild wget
+    apt install -y python3-sphinx-autobuild wget
 
-RUN pip3 install sphinxcontrib-plantuml
+WORKDIR /usr/drawio
+RUN wget https://github.com/jgraph/drawio-desktop/releases/download/v24.2.5/drawio-amd64-24.2.5.deb && \
+	apt install -y ./drawio-amd64-24.2.5.deb && \
+	apt update && apt install -y libasound2
 
-WORKDIR /usr/plantuml
-RUN wget https://github.com/plantuml/plantuml/releases/download/v1.2024.4/plantuml-gplv2-1.2024.4.jar
+RUN python3 -m pip install sphinxcontrib-drawio && \
+	apt update && apt install -y xvfb
 
 WORKDIR /docs

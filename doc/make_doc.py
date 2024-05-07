@@ -10,7 +10,7 @@ import serial
 import time
 
 def parse_arguments():
-	parser = argparse.ArgumentParser(description='run cucumber')
+	parser = argparse.ArgumentParser(description='make doc')
 
 	parser.add_argument('--sphinx_autobuild', '--sa',
 	                    action='store_true',

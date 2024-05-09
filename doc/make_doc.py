@@ -6,8 +6,7 @@ import argparse
 import os
 import subprocess
 import datetime
-import serial
-import time
+import pathlib
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description='make doc')
@@ -32,7 +31,7 @@ def parse_arguments():
 	arguments = parser.parse_args()
 
 
-def build_container(container_tag):
+def build_container(container_tag, work_dir):
 	args = ['docker', 'build',
 		'--tag', container_tag]
 
@@ -42,23 +41,22 @@ def build_container(container_tag):
 	else:
 		stdout = None
 
-	args.extend(['--file', 'Dockerfile', '.'])
+	args.extend(['--file', work_dir+'/Dockerfile', '.'])
 
 	print('    building... please wait')
 	return subprocess.run(args, stdout=stdout)
 
 
-def run_container(container_tag):
+def run_container(container_tag, work_dir):
 
 	current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss');
 
 	docker_volume_dir = '/usr/doc'
-	host_volume_dir = os.getcwd()
 
 	if arguments.keep_open:
 		commands = 'bash'
 	elif arguments.sphinx_autobuild:
-		commands = 'set -e \n sphinx-autobuild --port 8000 --host 0.0.0.0 source _build/html'
+		commands = 'set -e \n sphinx-autobuild '+ ('' if arguments.verbose else '-q') +' --port 8000 --host 0.0.0.0 source _build/html'
 	else:
 		commands = 'set -e \n make html'
 
@@ -68,7 +66,7 @@ def run_container(container_tag):
 		'--name', 'doc_' + current_time,
 		'--publish', '8000:8000', # for sphinx-autobuild
 		'--publish', '35729:35729', # for sphinx-autobuild
-		'--volume', host_volume_dir + ':' + docker_volume_dir,
+		'--volume', work_dir + ':' + docker_volume_dir,
 		'--workdir', docker_volume_dir,
 		'-i' + ('' if arguments.pseudo_tty_disable else 't'),
 		container_tag,
@@ -86,15 +84,16 @@ def assert_result(result):
 def main():
 	parse_arguments()
 
-	container_tag = os.getcwd()[1:].lower().replace('/_', '/')
+	work_dir = str(pathlib.Path(__file__).parent.resolve())
+	container_tag = work_dir[1:].lower().replace('/_', '/')
 
 	if arguments.verbose:
 		print('Container Tag: ' + container_tag)
 
-	result = build_container(container_tag)
+	result = build_container(container_tag, work_dir)
 	assert_result(result)
 
-	result = run_container(container_tag)
+	result = run_container(container_tag, work_dir)
 	assert_result(result)
 
 

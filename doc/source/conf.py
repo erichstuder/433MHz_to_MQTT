@@ -13,7 +13,11 @@ author = 'erichstuder'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinxcontrib.drawio']
+extensions = [
+	'sphinxcontrib.drawio',
+	'sphinx_toolbox.collapse',
+	'sphinxcontrib.programoutput',
+]
 
 templates_path = ['_templates']
 exclude_patterns = []

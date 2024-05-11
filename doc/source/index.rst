@@ -11,6 +11,7 @@ Welcome to 433MHz_to_MQTT's documentation!
    :caption: Contents:
 
    doc
+   development_environment
 
 
 Indices and tables

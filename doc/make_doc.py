@@ -51,14 +51,16 @@ def run_container(container_tag, work_dir):
 
 	current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss');
 
-	docker_volume_dir = '/usr/doc'
+	docker_volume_dir = '/usr/project'
+
+	work_dir_commands = 'set -e \n cd doc \n'
 
 	if arguments.keep_open:
 		commands = 'bash'
 	elif arguments.sphinx_autobuild:
-		commands = 'set -e \n sphinx-autobuild '+ ('' if arguments.verbose else '-q') +' --port 8000 --host 0.0.0.0 source _build/html'
+		commands = work_dir_commands + 'sphinx-autobuild '+ ('' if arguments.verbose else '-q') +' --port 8000 --host 0.0.0.0 source _build/html'
 	else:
-		commands = 'set -e \n make html'
+		commands = work_dir_commands + 'make html'
 
 	return subprocess.run(['docker',
 		'run',
@@ -66,7 +68,7 @@ def run_container(container_tag, work_dir):
 		'--name', 'doc_' + current_time,
 		'--publish', '8000:8000', # for sphinx-autobuild
 		'--publish', '35729:35729', # for sphinx-autobuild
-		'--volume', work_dir + ':' + docker_volume_dir,
+		'--volume', work_dir + '/..:' + docker_volume_dir,
 		'--workdir', docker_volume_dir,
 		'-i' + ('' if arguments.pseudo_tty_disable else 't'),
 		container_tag,

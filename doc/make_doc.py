@@ -62,12 +62,13 @@ def run_container(container_tag, work_dir):
 	else:
 		commands = work_dir_commands + 'make html'
 
+
 	return subprocess.run(['docker',
 		'run',
 		'--rm',
 		'--name', 'doc_' + current_time,
-		'--publish', '8000:8000', # for sphinx-autobuild
-		'--publish', '35729:35729', # for sphinx-autobuild
+		# '--publish', '8000:8000', # for sphinx-autobuild
+		# '--publish', '35729:35729', # for sphinx-autobuild
 		'--volume', work_dir + '/..:' + docker_volume_dir,
 		'--workdir', docker_volume_dir,
 		'-i' + ('' if arguments.pseudo_tty_disable else 't'),

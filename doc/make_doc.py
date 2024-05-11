@@ -62,19 +62,25 @@ def run_container(container_tag, work_dir):
 	else:
 		commands = work_dir_commands + 'make html'
 
-
-	return subprocess.run(['docker',
-		'run',
+	args = ['docker', 'run',
 		'--rm',
 		'--name', 'doc_' + current_time,
-		# '--publish', '8000:8000', # for sphinx-autobuild
-		# '--publish', '35729:35729', # for sphinx-autobuild
 		'--volume', work_dir + '/..:' + docker_volume_dir,
-		'--workdir', docker_volume_dir,
-		'-i' + ('' if arguments.pseudo_tty_disable else 't'),
-		container_tag,
-		'bash', '-c', commands
-	])
+		'--workdir', docker_volume_dir]
+
+	if arguments.sphinx_autobuild:
+		args.extend([
+			'--publish', '8000:8000',
+			'--publish', '35729:35729'])
+
+	if arguments.pseudo_tty_disable:
+		args.append('-i')
+	else:
+		args.append('-it')
+
+	args.extend([container_tag, 'bash', '-c', commands])
+
+	return subprocess.run(args)
 
 
 def assert_result(result):

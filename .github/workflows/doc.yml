@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: python3 doc/make_doc.py -v
+      - run: python3 doc/make_doc.py -v -p
 
       - uses: actions/upload-artifact@v4
         with:

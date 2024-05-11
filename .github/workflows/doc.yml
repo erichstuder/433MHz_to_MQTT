@@ -10,10 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: |
-          cd doc
-          docker build --tag my_container .
-          docker run --rm -v .:/docs my_container make html
+      - run: python3 doc/make_doc.py -v
 
       - uses: actions/upload-artifact@v4
         with:

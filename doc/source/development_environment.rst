@@ -56,10 +56,52 @@ See :doc:`file_structure` where they are.
 VS Code with some extensions and Docker are the only tools that need to be installed locally.
 Everything generating output like compilers, flash-tools, unit-test-frameworks,
 documentation-build-chain, ... are in the Docker containers.
-This makes the development environment consistent and reproducible.
+This makes the development environment consistent, reproducible and documented.
 
 code
 ^^^^
 Rust has been chosen as the programming language, as it is an upcoming language with a lot of potential and a good community.
 It might not be the easiest solution for the task, but that is not a criterium here.
 See :doc:`file_structure` for the code structure.
+
+Local Toolchain
+---------------
+
+.. drawio-image:: toolchain_local.drawio
+
+Git
+^^^
+Is used for version control.
+
+github.com
+^^^^^^^^^^
+GitHub is used as the repository host.
+
+Python
+^^^^^^
+Python scripts are used to simplify the interaction with the toolchain.
+
+Docker
+^^^^^^
+Runs the containers with the toolchain.
+
+Sphinx
+^^^^^^
+Is used to generate the documentation.
+
+Rust tools
+^^^^^^^^^^
+The Rust tools are used to build and test the code and to deploy to the target.
+
+Remote Toolchain
+----------------
+
+.. drawio-image:: toolchain_remote.drawio
+
+actions
+^^^^^^^
+GitHub Actions are used to automate the build and test process.
+
+Python, Docker, Sphinx, Rust Tools, ...
+^^^^^^
+The same tools and scripts are used remotely as locally.

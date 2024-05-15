@@ -6,7 +6,7 @@ RUN apt update && apt install -y wget libasound2 && \
 	wget https://github.com/jgraph/drawio-desktop/releases/download/v24.2.5/drawio-amd64-24.2.5.deb && \
 	apt install -y ./drawio-amd64-24.2.5.deb
 
-RUN python3 -m pip install sphinx sphinx-autobuild sphinxcontrib-drawio sphinx-toolbox sphinxcontrib-programoutput && \
+RUN python3 -m pip install sphinx sphinx-autobuild sphinxcontrib-drawio sphinx-toolbox sphinxcontrib-programoutput pyserial && \
 	apt update && apt install -y xvfb tree
 
 # RUN git config --global --add safe.directory /usr/project

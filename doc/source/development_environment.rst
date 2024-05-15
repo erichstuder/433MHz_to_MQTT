@@ -103,5 +103,5 @@ actions
 GitHub Actions are used to automate the build and test process.
 
 Python, Docker, Sphinx, Rust Tools, ...
-^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The same tools and scripts are used remotely as locally.

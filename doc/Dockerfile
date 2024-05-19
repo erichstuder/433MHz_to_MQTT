@@ -8,5 +8,3 @@ RUN apt update && apt install -y wget libasound2 && \
 
 RUN python3 -m pip install sphinx sphinx-autobuild sphinxcontrib-drawio sphinx-toolbox sphinxcontrib-programoutput pyserial && \
 	apt update && apt install -y xvfb tree
-
-# RUN git config --global --add safe.directory /usr/project

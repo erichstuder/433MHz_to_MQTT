@@ -1,6 +1,7 @@
 {
 	"recommendations": [
 		"tamasfe.even-better-toml",
-		"1yib.rust-bundle"
+		"1yib.rust-bundle",
+		"hediet.vscode-drawio"
 	]
 }

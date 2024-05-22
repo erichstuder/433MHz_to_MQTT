@@ -6,6 +6,8 @@ import argparse
 import os
 import subprocess
 import datetime
+import serial
+import time
 
 def parse_arguments():
 	parser = argparse.ArgumentParser(description='run cucumber')
@@ -14,13 +16,17 @@ def parse_arguments():
 	                    action='store_true',
 	                    help='Build the project.')
 
+	parser.add_argument('--test', '-t',
+	                    action='store_true',
+	                    help='Test the project.')
+
 	parser.add_argument('--upload', '-u',
 	                    action='store_true',
 	                    help='Upload the project to RPI after rebuild.')
 
-	parser.add_argument('--pseudo_tty', '-p',
+	parser.add_argument('--pseudo_tty_disable', '-p',
 	                    action='store_true',
-	                    help='Colorfull output.')
+	                    help='Disable colorfull output.')
 
 	parser.add_argument('--keep_open', '-k',
 	                    action='store_true',
@@ -28,7 +34,7 @@ def parse_arguments():
 
 	parser.add_argument('--verbose', '-v',
 	                    action='store_true',
-	                    help='Enable verbose output.')
+	                    help='Verbose output.')
 
 	global arguments
 	arguments = parser.parse_args()
@@ -57,26 +63,46 @@ def run_container(container_tag):
 
 	current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss');
 
-	docker_volume_dir = '/usr/firmware'
+	docker_volume_dir = '/usr/433MHz_to_MQTT'
 	host_volume_dir = os.getcwd()
 
 	if arguments.keep_open:
 		commands = 'bash'
 	elif arguments.upload:
-		commands = 'set -e\n cargo run'
+		# TODO: Maybe we could send the device into bootloader mode directly from inside the container?
+		import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.
+		udev = pyudev.Context()
+		for usb_device in  udev.list_devices(subsystem="usb"):
+			if usb_device.attributes.get('manufacturer') == b'github.com/erichstuder' and usb_device.attributes.get('product') == b'433MHz_to_MQTT':
+				for tty_device in  udev.list_devices(subsystem="tty"):
+					if tty_device.sys_path.startswith(usb_device.sys_path):
+						my_serial = serial.Serial(None)
+						my_serial.port = tty_device.device_node
+						my_serial.open()
+						my_serial.write("enter bootloader".encode())
+						my_serial.close()
+						time.sleep(4) #wait for the device to enter bootloader mode
+						if arguments.verbose:
+							print("Info: Device was sent into bootloader mode.")
+
+		commands = 'set -e\n cd firmware \n cargo run'
 	elif arguments.build:
-		commands = 'set -e\n cargo build'
+		commands = 'set -e\n cd firmware \n cargo build'
+	elif arguments.test:
+		commands = 'set -e\n cd app \n cargo test'
 	else:
 		return #do nothing
 
 	return subprocess.run(['docker',
 		'run',
 		'--rm',
+		'--privileged',
 		'--name', 'firmware_' + current_time,
 		'--volume', '/media/'+os.environ.get('USER')+':/media/user/',
 		'--volume', host_volume_dir + ':' + docker_volume_dir,
+		'--volume', '/dev/bus/usb:/dev/bus/usb',
 		'--workdir', docker_volume_dir,
-		'-i' + ('t' if arguments.pseudo_tty else ''),
+		'-i' + ('' if arguments.pseudo_tty_disable else 't'),
 		container_tag,
 		'bash', '-c', commands
 	])

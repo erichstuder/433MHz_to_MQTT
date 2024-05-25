@@ -31,7 +31,7 @@ WORKDIR /usr/dependencies_fetch_project
 RUN cargo init --lib app
 WORKDIR /usr/dependencies_fetch_project/dummy
 RUN cargo init
-COPY firmware/Cargo.toml .
+COPY ./firmware/Cargo.toml .
 RUN cargo fetch
-COPY app/Cargo.toml .
+COPY ./app/Cargo.toml .
 RUN cargo fetch

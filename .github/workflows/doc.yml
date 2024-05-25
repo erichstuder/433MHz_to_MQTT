@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: python3 doc/make_doc.py -v -p
+      - run: python3 run.py --doc --verbose --pseudo_tty_disable
 
       - uses: actions/upload-artifact@v4
         with:

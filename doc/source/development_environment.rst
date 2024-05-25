@@ -69,6 +69,11 @@ Local Toolchain
 
 .. drawio-image:: toolchain_local.drawio
 
+Remote Toolchain
+----------------
+
+.. drawio-image:: toolchain_remote.drawio
+
 Git
 ^^^
 Is used for version control.
@@ -93,15 +98,6 @@ Rust tools
 ^^^^^^^^^^
 The Rust tools are used to build and test the code and to deploy to the target.
 
-Remote Toolchain
-----------------
-
-.. drawio-image:: toolchain_remote.drawio
-
 actions
 ^^^^^^^
 GitHub Actions are used to automate the build and test process.
-
-Python, Docker, Sphinx, Rust Tools, ...
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The same tools and scripts are used remotely as locally.

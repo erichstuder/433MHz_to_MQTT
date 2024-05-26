@@ -1,3 +1,16 @@
 {
-	"hediet.vscode-drawio.theme": "Kennedy"
+	"hediet.vscode-drawio.theme": "Kennedy",
+	"rust-analyzer.linkedProjects": [
+		"software/firmware/Cargo.toml",
+		"software/app/Cargo.toml",
+	],
+
+	// This is a workaround to suppress "error[E0463]: can't find crate for `test`"
+	// It was just annoying during work. Building and testing works fine.
+	// see: https://github.com/rust-lang/rust-analyzer/issues/3801
+	"rust-analyzer.check.allTargets": false,
+	"rust-analyzer.check.extraArgs": [
+	  "--target",
+	  "thumbv6m-none-eabi"
+	],
 }

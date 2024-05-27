@@ -60,8 +60,9 @@ impl<'a> UsbDevice<'a> {
 async fn main(_spawner: embassy_executor::Spawner) {
     let p = embassy_rp::init(Default::default());
 
+    let mut usb_device = UsbDevice::new(p.USB);
+
     let mut state = State::new();
-    let mut usb_device = UsbDevice::new(p.USB); //TODO: why must this be after state?
 
     let mut builder = Builder::new(
         usb_device.driver,

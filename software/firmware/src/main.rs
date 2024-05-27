@@ -5,71 +5,76 @@
 use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
+use embassy_usb::{Builder, Config};
+use embassy_usb::class::cdc_acm::State;
 //use embassy_executor::Spawner;
 use embassy_futures::join::join;
 //use embassy_rp::usb::{Driver, Instance, InterruptHandler};
 //use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
-//use embassy_usb::{Builder, Config};
 use app;
 
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
 
-fn init_usb<'a>(usb: USB) -> Driver<'a, USB> {
-    embassy_rp::usb::Driver::new(usb, Irqs)
+
+struct UsbDevice<'a> {
+    driver: Driver<'a, USB>,
+    config: Config<'a>,
+    device_descriptor: [u8; 256],
+    config_descriptor: [u8; 256],
+    bos_descriptor: [u8; 256],
+    control_buf: [u8; 64],
+}
+
+impl<'a> UsbDevice<'a> {
+    fn new(usb: USB) -> Self {
+        let mut config = Config::new(0xc0de, 0xcafe);
+        config.manufacturer = Some("github.com/erichstuder");
+        config.product = Some("433MHz_to_MQTT");
+        config.serial_number = Some("12345678");
+        config.max_power = 100;
+        config.max_packet_size_0 = 64;
+
+        // Required for windows compatibility.
+        // https://developer.nordicsemi.com/nRF_Connect_SDK/doc/1.9.1/kconfig/CONFIG_CDC_ACM_IAD.html#help
+        config.device_class = 0xEF;
+        config.device_sub_class = 0x02;
+        config.device_protocol = 0x01;
+        config.composite_with_iads = true;
+
+        Self {
+            driver: Driver::new(usb, Irqs),
+            config,
+            device_descriptor: [0; 256],
+            config_descriptor: [0; 256],
+            bos_descriptor: [0; 256],
+            control_buf: [0; 64],
+        }
+    }
 }
 
 
 #[embassy_executor::main]
 async fn main(_spawner: embassy_executor::Spawner) {
-    //info!("Hello there!");
-
     let p = embassy_rp::init(Default::default());
 
-    //init_usb(&mut p.USB);
+    let mut state = State::new();
+    let mut usb_device = UsbDevice::new(p.USB); //TODO: why must this be after state?
 
-    // Create the driver, from the HAL.
-    ////////let driver = embassy_rp::usb::Driver::new(p.USB, Irqs);
-    let driver = init_usb(p.USB);
-
-    // Create embassy-usb Config
-    let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
-    config.manufacturer = Some("github.com/erichstuder");
-    config.product = Some("433MHz_to_MQTT");
-    config.serial_number = Some("12345678");
-    config.max_power = 100;
-    config.max_packet_size_0 = 64;
-
-    // Required for windows compatibility.
-    // https://developer.nordicsemi.com/nRF_Connect_SDK/doc/1.9.1/kconfig/CONFIG_CDC_ACM_IAD.html#help
-    config.device_class = 0xEF;
-    config.device_sub_class = 0x02;
-    config.device_protocol = 0x01;
-    config.composite_with_iads = true;
-
-    // Create embassy-usb DeviceBuilder using the driver and config.
-    // It needs some buffers for building the descriptors.
-    let mut device_descriptor = [0; 256];
-    let mut config_descriptor = [0; 256];
-    let mut bos_descriptor = [0; 256];
-    let mut control_buf = [0; 64];
-
-    let mut state = embassy_usb::class::cdc_acm::State::new();
-
-    let mut builder = embassy_usb::Builder::new(
-        driver,
-        config,
-        &mut device_descriptor,
-        &mut config_descriptor,
-        &mut bos_descriptor,
+    let mut builder = Builder::new(
+        usb_device.driver,
+        usb_device.config,
+        &mut usb_device.device_descriptor,
+        &mut usb_device.config_descriptor,
+        &mut usb_device.bos_descriptor,
         &mut [], // no msos descriptors
-        &mut control_buf,
+        &mut usb_device.control_buf,
     );
 
-    // Create classes on the builder.
-    let mut class = embassy_usb::class::cdc_acm::CdcAcmClass::new(&mut builder, &mut state, 64);
+    //Create classes on the builder.
+    let mut cdc_acm_class = embassy_usb::class::cdc_acm::CdcAcmClass::new(&mut builder, &mut state, 64);
 
     // Build the builder.
     let mut usb = builder.build();
@@ -80,9 +85,9 @@ async fn main(_spawner: embassy_executor::Spawner) {
     // Do stuff with the class!
     let echo_fut = async {
         loop {
-            class.wait_connection().await;
+            cdc_acm_class.wait_connection().await;
             //info!("Connected");
-            let _ = echo(&mut class).await;
+            let _ = echo(&mut cdc_acm_class).await;
             //info!("Disconnected");
         }
     };

@@ -26,6 +26,7 @@ struct UsbDevice<'a> {
     config_descriptor: [u8; 256],
     bos_descriptor: [u8; 256],
     control_buf: [u8; 64],
+    state: State<'a>,
 }
 
 impl<'a> UsbDevice<'a> {
@@ -51,6 +52,7 @@ impl<'a> UsbDevice<'a> {
             config_descriptor: [0; 256],
             bos_descriptor: [0; 256],
             control_buf: [0; 64],
+            state: State::new(),
         }
     }
 }
@@ -61,8 +63,6 @@ async fn main(_spawner: embassy_executor::Spawner) {
     let p = embassy_rp::init(Default::default());
 
     let mut usb_device = UsbDevice::new(p.USB);
-
-    let mut state = State::new();
 
     let mut builder = Builder::new(
         usb_device.driver,
@@ -75,7 +75,7 @@ async fn main(_spawner: embassy_executor::Spawner) {
     );
 
     //Create classes on the builder.
-    let mut cdc_acm_class = embassy_usb::class::cdc_acm::CdcAcmClass::new(&mut builder, &mut state, 64);
+    let mut cdc_acm_class = embassy_usb::class::cdc_acm::CdcAcmClass::new(&mut builder, &mut usb_device.state, 64);
 
     // Build the builder.
     let mut usb = builder.build();

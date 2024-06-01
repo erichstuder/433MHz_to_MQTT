@@ -18,15 +18,16 @@ embassy_rp::bind_interrupts!(struct Irqs {
 });
 
 struct MyUsbDevice<'a> {
+    cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
     builder: Builder<'a, Driver<'a, USB>>,
-    // device_descriptor_buf: [u8; 256],j
+    // device_descriptor_buf: [u8; 256],
     // config_descriptor_buf: [u8; 256],
-    // bos_descriptor_buf: [u8; 256],j
+    // bos_descriptor_buf: [u8; 256],
 }
 
 
 impl<'a> MyUsbDevice<'a> {
-    fn new(usb: USB) -> Self {
+    fn new(usb: USB, state: &'a mut State<'a>) -> Self{
         //let state = State::new();
 
         let mut config = Config::new(0xc0de, 0xcafe);
@@ -58,7 +59,7 @@ impl<'a> MyUsbDevice<'a> {
         static mut CONTROL_BUF: [u8; 64] = [0; 64];
 
         #[allow(unknown_lints)] //TODO: all this allow stuff should be removed
-        let builder = Builder::new(
+        let mut builder = Builder::new(
             Driver::new(usb, Irqs),
             config,
             #[allow(static_mut_refs)]
@@ -72,8 +73,10 @@ impl<'a> MyUsbDevice<'a> {
             unsafe { &mut CONTROL_BUF },
         );
 
+        let cdc_acm_class = CdcAcmClass::new(&mut builder, state, 64);
+
         Self {
-            //state,
+            cdc_acm_class,
             builder,
             // device_descriptor_buf: [0; 256],
             // config_descriptor_buf: [0; 256],
@@ -89,22 +92,16 @@ async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
     let mut state = State::new();
-    let mut usb_device = MyUsbDevice::new(p.USB);
-
-    let mut cdc_acm_class = CdcAcmClass::new(&mut usb_device.builder, &mut state, 64);
+    let mut usb_device = MyUsbDevice::new(p.USB, &mut state);
 
     let mut usb = usb_device.builder.build();
 
-    // Run the USB device.
     let usb_fut = usb.run();
 
-    // Do stuff with the class!
     let echo_fut = async {
         loop {
-            cdc_acm_class.wait_connection().await;
-            //info!("Connected");
-            let _ = echo(&mut cdc_acm_class).await;
-            //info!("Disconnected");
+            usb_device.cdc_acm_class.wait_connection().await;
+            let _ = echo(&mut usb_device.cdc_acm_class).await;
         }
     };
 

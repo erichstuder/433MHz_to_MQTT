@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use core::future::Future;
+
 //use defmt::{info, panic};
 use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::peripherals::USB;
@@ -20,16 +22,11 @@ embassy_rp::bind_interrupts!(struct Irqs {
 struct MyUsbDevice<'a> {
     cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
     usb: UsbDevice<'a, Driver<'a, USB>>,
-    // device_descriptor_buf: [u8; 256],
-    // config_descriptor_buf: [u8; 256],
-    // bos_descriptor_buf: [u8; 256],
 }
 
 
 impl<'a> MyUsbDevice<'a> {
     fn new(usb: USB, state: &'a mut State<'a>) -> Self{
-        //let state = State::new();
-
         let mut config = Config::new(0xc0de, 0xcafe);
         config.manufacturer = Some("github.com/erichstuder");
         config.product = Some("433MHz_to_MQTT");
@@ -43,15 +40,6 @@ impl<'a> MyUsbDevice<'a> {
         config.device_sub_class = 0x02;
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
-
-        // let device = Self {
-        //     state: State::new(),
-        //     builder: None,
-        //     device_descriptor_buf: [0; 256],
-        //     config_descriptor_buf: [0; 256],
-        //     bos_descriptor_buf: [0; 256],
-        //     control_buf: [0; 64],
-        // };
 
         static mut DEVICE_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
         static mut CONFIG_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
@@ -79,10 +67,6 @@ impl<'a> MyUsbDevice<'a> {
         Self {
             cdc_acm_class,
             usb,
-            // device_descriptor_buf: [0; 256],
-            // config_descriptor_buf: [0; 256],
-            // bos_descriptor_buf: [0; 256],
-            // control_buf: [0; 64],
         }
     }
 }
@@ -95,8 +79,6 @@ async fn main(_spawner: Spawner) {
     let mut state = State::new();
     let mut usb_device = MyUsbDevice::new(p.USB, &mut state);
 
-    let usb_fut = usb_device.usb.run();
-
     let echo_fut = async {
         loop {
             usb_device.cdc_acm_class.wait_connection().await;
@@ -106,7 +88,7 @@ async fn main(_spawner: Spawner) {
 
     // Run everything concurrently.
     // If we had made everything `'static` above instead, we could do this using separate tasks instead.
-    join(usb_fut, echo_fut).await;
+    join(usb_device.usb.run(), echo_fut).await;
 }
 
 struct Disconnected {}

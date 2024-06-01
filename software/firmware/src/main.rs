@@ -6,11 +6,10 @@ use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
 use embassy_usb::{Builder, Config};
-use embassy_usb::class::cdc_acm::State;
-//use embassy_executor::Spawner;
+use embassy_executor::Spawner;
 use embassy_futures::join::join;
 //use embassy_rp::usb::{Driver, Instance, InterruptHandler};
-//use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
+use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
 use app;
 
@@ -18,19 +17,18 @@ embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
 
-
-struct UsbDevice<'a> {
-    driver: Driver<'a, USB>,
-    config: Config<'a>,
-    device_descriptor: [u8; 256],
-    config_descriptor: [u8; 256],
-    bos_descriptor: [u8; 256],
-    control_buf: [u8; 64],
-    state: State<'a>,
+struct MyUsbDevice<'a> {
+    builder: Builder<'a, Driver<'a, USB>>,
+    // device_descriptor_buf: [u8; 256],j
+    // config_descriptor_buf: [u8; 256],
+    // bos_descriptor_buf: [u8; 256],j
 }
 
-impl<'a> UsbDevice<'a> {
+
+impl<'a> MyUsbDevice<'a> {
     fn new(usb: USB) -> Self {
+        //let state = State::new();
+
         let mut config = Config::new(0xc0de, 0xcafe);
         config.manufacturer = Some("github.com/erichstuder");
         config.product = Some("433MHz_to_MQTT");
@@ -45,40 +43,57 @@ impl<'a> UsbDevice<'a> {
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
 
-        Self {
-            driver: Driver::new(usb, Irqs),
+        // let device = Self {
+        //     state: State::new(),
+        //     builder: None,
+        //     device_descriptor_buf: [0; 256],
+        //     config_descriptor_buf: [0; 256],
+        //     bos_descriptor_buf: [0; 256],
+        //     control_buf: [0; 64],
+        // };
+
+        static mut DEVICE_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
+        static mut CONFIG_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
+        static mut BOS_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
+        static mut CONTROL_BUF: [u8; 64] = [0; 64];
+
+        #[allow(unknown_lints)] //TODO: all this allow stuff should be removed
+        let builder = Builder::new(
+            Driver::new(usb, Irqs),
             config,
-            device_descriptor: [0; 256],
-            config_descriptor: [0; 256],
-            bos_descriptor: [0; 256],
-            control_buf: [0; 64],
-            state: State::new(),
+            #[allow(static_mut_refs)]
+            unsafe{ &mut DEVICE_DESCRIPTOR_BUF },
+            #[allow(static_mut_refs)]
+            unsafe { &mut CONFIG_DESCRIPTOR_BUF },
+            #[allow(static_mut_refs)]
+            unsafe { &mut BOS_DESCRIPTOR_BUF },
+            &mut [], // no msos descriptors
+            #[allow(static_mut_refs)]
+            unsafe { &mut CONTROL_BUF },
+        );
+
+        Self {
+            //state,
+            builder,
+            // device_descriptor_buf: [0; 256],
+            // config_descriptor_buf: [0; 256],
+            // bos_descriptor_buf: [0; 256],
+            // control_buf: [0; 64],
         }
     }
 }
 
 
 #[embassy_executor::main]
-async fn main(_spawner: embassy_executor::Spawner) {
+async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
 
-    let mut usb_device = UsbDevice::new(p.USB);
+    let mut state = State::new();
+    let mut usb_device = MyUsbDevice::new(p.USB);
 
-    let mut builder = Builder::new(
-        usb_device.driver,
-        usb_device.config,
-        &mut usb_device.device_descriptor,
-        &mut usb_device.config_descriptor,
-        &mut usb_device.bos_descriptor,
-        &mut [], // no msos descriptors
-        &mut usb_device.control_buf,
-    );
+    let mut cdc_acm_class = CdcAcmClass::new(&mut usb_device.builder, &mut state, 64);
 
-    //Create classes on the builder.
-    let mut cdc_acm_class = embassy_usb::class::cdc_acm::CdcAcmClass::new(&mut builder, &mut usb_device.state, 64);
-
-    // Build the builder.
-    let mut usb = builder.build();
+    let mut usb = usb_device.builder.build();
 
     // Run the USB device.
     let usb_fut = usb.run();

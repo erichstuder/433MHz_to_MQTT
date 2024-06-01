@@ -5,7 +5,7 @@
 use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
-use embassy_usb::{Builder, Config};
+use embassy_usb::{Builder, Config, UsbDevice};
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 //use embassy_rp::usb::{Driver, Instance, InterruptHandler};
@@ -19,7 +19,7 @@ embassy_rp::bind_interrupts!(struct Irqs {
 
 struct MyUsbDevice<'a> {
     cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
-    builder: Builder<'a, Driver<'a, USB>>,
+    usb: UsbDevice<'a, Driver<'a, USB>>,
     // device_descriptor_buf: [u8; 256],
     // config_descriptor_buf: [u8; 256],
     // bos_descriptor_buf: [u8; 256],
@@ -74,10 +74,11 @@ impl<'a> MyUsbDevice<'a> {
         );
 
         let cdc_acm_class = CdcAcmClass::new(&mut builder, state, 64);
+        let usb = builder.build();
 
         Self {
             cdc_acm_class,
-            builder,
+            usb,
             // device_descriptor_buf: [0; 256],
             // config_descriptor_buf: [0; 256],
             // bos_descriptor_buf: [0; 256],
@@ -94,9 +95,7 @@ async fn main(_spawner: Spawner) {
     let mut state = State::new();
     let mut usb_device = MyUsbDevice::new(p.USB, &mut state);
 
-    let mut usb = usb_device.builder.build();
-
-    let usb_fut = usb.run();
+    let usb_fut = usb_device.usb.run();
 
     let echo_fut = async {
         loop {

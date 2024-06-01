@@ -6,12 +6,13 @@ edition = "2021"
 
 [dependencies]
 app = { path = "../app" }
+
 #embassy-embedded-hal = { version = "0.1.0", features = ["defmt"] }
 #embassy-sync = { version = "0.5.0", features = ["defmt"] }
 embassy-executor = { version = "0.5.0", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers"] }
 embassy-time = { version = "0.3.0", features = ["defmt", "defmt-timestamp-uptime"] }
 embassy-rp = { version = "0.1.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl"] }
-embassy-usb = { version = "0.1.0", features = ["defmt"] }
+embassy-usb = { version = "0.2.0", features = ["defmt"] }
 #embassy-net = { version = "0.4.0", features = ["defmt", "tcp", "udp", "dhcpv4", "medium-ethernet"] }
 #embassy-net-wiznet = { version = "0.1.0", features = ["defmt"] }
 embassy-futures = { version = "0.1.0" }
@@ -49,8 +50,8 @@ panic-probe = { version = "0.3", features = ["print-defmt"] }
 static_cell = "2"
 portable-atomic = { version = "1.5", features = ["critical-section"] }
 #log = "0.4"
-#pio-proc = "0.2"
-#pio = "0.2.1"
+pio-proc = "0.2"
+pio = "0.2.1"
 #rand = { version = "0.8.5", default-features = false }
 
 
@@ -66,7 +67,6 @@ portable-atomic = { version = "1.5", features = ["critical-section"] }
 
 # # We're using a Pico by default on this template
 # rp-pico = "0.8"
-
 
 # cargo build/run
 [profile.dev]

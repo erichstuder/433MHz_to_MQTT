@@ -1,9 +1,6 @@
 #![no_std]
 #![no_main]
 
-use core::future::Future;
-
-//use defmt::{info, panic};
 use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
@@ -23,7 +20,6 @@ struct MyUsbDevice<'a> {
     cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
     usb: UsbDevice<'a, Driver<'a, USB>>,
 }
-
 
 impl<'a> MyUsbDevice<'a> {
     fn new(usb: USB, state: &'a mut State<'a>) -> Self{

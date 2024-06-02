@@ -1,4 +1,3 @@
 sphinxcontrib-drawio
 sphinx-toolbox
 sphinxcontrib-programoutput
-drawio-exporter

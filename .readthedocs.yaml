@@ -1,12 +1,13 @@
 version: 2
 
-# Set the OS, Python version and other tools you might need
 build:
   os: ubuntu-22.04
   tools:
     python: "3.12"
   apt_packages:
-      - xvfb
+    - xvfb
+  commands:
+    - snap install drawio
 
 sphinx:
   configuration: doc/source/conf.py

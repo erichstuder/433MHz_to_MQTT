@@ -22,8 +22,7 @@ async fn main(_spawner: Spawner) {
     let mut remote_receiver = remote_receiver::RemoteReceiver::new(
         &mut common,
         sm0,
-        p.PIN_4,
-        p.PIN_5,
+        p.PIN_28,
     );
 
     join(usb_communication::run(), remote_receiver.read()).await;

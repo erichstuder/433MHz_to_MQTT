@@ -12,19 +12,16 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
     pub fn new(
         pio: &mut Common<'d, T>,
         mut sm: StateMachine<'d, T, SM>,
-        pin_a: impl PioPin,
-        pin_b: impl PioPin,
+        pin: impl PioPin,
     ) -> Self {
-        let mut pin_a = pio.make_pio_pin(pin_a);
-        let mut pin_b = pio.make_pio_pin(pin_b);
-        pin_a.set_pull(Pull::Up);
-        pin_b.set_pull(Pull::Up);
-        sm.set_pin_dirs(pio::Direction::In, &[&pin_a, &pin_b]);
+        let mut pin = pio.make_pio_pin(pin);
+        pin.set_pull(Pull::Up);
+        sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
-        let prg = pio_proc::pio_asm!("wait 1 pin 1", "wait 0 pin 1", "in pins, 2", "push",);
+        let prg = pio_proc::pio_asm!("wait 1 pin 0", "wait 0 pin 0", "in pins, 0", "push",);
 
         let mut cfg = Config::default();
-        cfg.set_in_pins(&[&pin_a, &pin_b]);
+        cfg.set_in_pins(&[&pin]);
         cfg.fifo_join = FifoJoin::RxOnly;
         cfg.shift_in.direction = ShiftDirection::Left;
         cfg.clock_divider = 10_000.to_fixed();

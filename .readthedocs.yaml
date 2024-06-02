@@ -6,9 +6,7 @@ build:
     python: "3.12"
   apt_packages:
     - xvfb
-    - snapd
-  commands:
-    - snap install drawio
+    - drawio
 
 sphinx:
   configuration: doc/source/conf.py

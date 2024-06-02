@@ -7,7 +7,7 @@ build:
   apt_packages:
     - xvfb
   commands:
-    - apt install snapd
+    - apt-get install snapd
     - snap install drawio
 
 sphinx:

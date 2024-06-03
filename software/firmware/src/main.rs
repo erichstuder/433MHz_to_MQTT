@@ -25,5 +25,8 @@ async fn main(_spawner: Spawner) {
         p.PIN_28,
     );
 
-    join(usb_communication::run(), remote_receiver.read()).await;
+    usb_communication::run(p.USB).await;
+
+    //let (_, remote_read_result) = join(usb_communication::run(p.USB), remote_receiver.read()).await;
+    //usb_communication::write(b"heeeeeeeeeeeeeeaaaaaaaaaaaaaaaaaaaaaaa").await;
 }

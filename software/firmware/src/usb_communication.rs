@@ -1,5 +1,6 @@
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::Driver;
+use embassy_rp::Peripheral;
 use embassy_usb::{Builder, Config, UsbDevice};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
@@ -97,10 +98,9 @@ async fn echo<'d, T: embassy_rp::usb::Instance + 'd>(class: &mut embassy_usb::cl
     }
 }
 
-pub async fn run() {
-    let p = embassy_rp::init(Default::default());
+pub async fn run(usb: USB) {
     let mut state = State::new();
-    let mut usb_device = UsbConfiguration::new(p.USB, &mut state);
+    let mut usb_device = UsbConfiguration::new(usb, &mut state);
     let echo_fut = async {
         loop {
             usb_device.cdc_acm_class.wait_connection().await;

@@ -1,6 +1,5 @@
 use embassy_rp::peripherals::USB;
-use embassy_rp::usb::Driver;
-use embassy_rp::Peripheral;
+use embassy_rp::usb::{Driver, Instance};
 use embassy_usb::{Builder, Config, UsbDevice};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
@@ -11,12 +10,23 @@ embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
 
-pub struct UsbConfiguration<'a> {
+struct Disconnected {}
+
+impl From<EndpointError> for Disconnected {
+    fn from(val: EndpointError) -> Self {
+        match val {
+            EndpointError::BufferOverflow => panic!("Buffer overflow"),
+            EndpointError::Disabled => Disconnected {},
+        }
+    }
+}
+
+pub struct UsbCommunication<'a> {
     pub cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
     pub usb: UsbDevice<'a, Driver<'a, USB>>,
 }
 
-impl<'a> UsbConfiguration<'a> {
+impl<'a> UsbCommunication<'a> {
     pub fn new(usb: USB, state: &'a mut State<'a>) -> Self{
         let mut config = Config::new(0xc0de, 0xcafe);
         config.manufacturer = Some("github.com/erichstuder");
@@ -59,20 +69,25 @@ impl<'a> UsbConfiguration<'a> {
             usb,
         }
     }
-}
 
-struct Disconnected {}
+    pub async fn run(&mut self) {
+        let cdc_acm_class = &mut self.cdc_acm_class;
+        let echo_fut = async {
+            loop {
+                cdc_acm_class.wait_connection().await;
+                let _ = echo(cdc_acm_class).await;
+            }
+        };
+        join(self.usb.run(), echo_fut).await;
+    }
 
-impl From<EndpointError> for Disconnected {
-    fn from(val: EndpointError) -> Self {
-        match val {
-            EndpointError::BufferOverflow => panic!("Buffer overflow"),
-            EndpointError::Disabled => Disconnected {},
-        }
+    pub async fn write(&mut self, data: &[u8]) {
+        self.cdc_acm_class.write_packet(data).await.unwrap();
     }
 }
 
-async fn echo<'d, T: embassy_rp::usb::Instance + 'd>(class: &mut embassy_usb::class::cdc_acm::CdcAcmClass<'d, embassy_rp::usb::Driver<'d, T>>) -> Result<(), Disconnected> {
+
+async fn echo<'d, T: Instance + 'd>(cdc_acm_class: &mut CdcAcmClass<'d, Driver<'d, T>>) -> Result<(), Disconnected> {
     let mut buf = [0; 64];
 
     struct EnterBootloaderImpl;
@@ -86,28 +101,14 @@ async fn echo<'d, T: embassy_rp::usb::Instance + 'd>(class: &mut embassy_usb::cl
     let mut parser = app::Parser::new(EnterBootloaderImpl);
 
     loop {
-        let n = class.read_packet(&mut buf).await?;
+        let n = cdc_acm_class.read_packet(&mut buf).await?;
         let data = &buf[..n];
-        class.write_packet(b"echo: ").await?;
-        class.write_packet(data).await?;
-        class.write_packet(b"\n").await?;
+        cdc_acm_class.write_packet(b"echo: ").await?;
+        cdc_acm_class.write_packet(data).await?;
+        cdc_acm_class.write_packet(b"\n").await?;
 
         let answer = parser.parse_message(data);
-        class.write_packet(answer).await?;
-        class.write_packet(b"\n\n").await?;
+        cdc_acm_class.write_packet(answer).await?;
+        cdc_acm_class.write_packet(b"\n\n").await?;
     }
-}
-
-pub async fn run(usb: USB) {
-    let mut state = State::new();
-    let mut usb_device = UsbConfiguration::new(usb, &mut state);
-    let echo_fut = async {
-        loop {
-            usb_device.cdc_acm_class.wait_connection().await;
-            let _ = echo(&mut usb_device.cdc_acm_class).await;
-        }
-    };
-    // Run everything concurrently.
-    // If we had made everything `'static` above instead, we could do this using separate tasks instead.
-    join(usb_device.usb.run(), echo_fut).await;
 }

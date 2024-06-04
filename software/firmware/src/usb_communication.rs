@@ -4,13 +4,14 @@ use embassy_usb::{Builder, Config, UsbDevice};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
 use app;
-use embassy_futures::join::join;
+//use embassy_futures::join::join;
+use embassy_usb::class::cdc_acm::Sender;
 
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
 
-struct Disconnected {}
+pub struct Disconnected {}
 
 impl From<EndpointError> for Disconnected {
     fn from(val: EndpointError) -> Self {
@@ -70,7 +71,7 @@ impl<'a> UsbCommunication<'a> {
         }
     }
 
-    pub async fn run(&mut self) {
+    /*pub async fn run(&mut self) {
         let cdc_acm_class = &mut self.cdc_acm_class;
         let echo_fut = async {
             loop {
@@ -79,16 +80,16 @@ impl<'a> UsbCommunication<'a> {
             }
         };
         join(self.usb.run(), echo_fut).await;
-    }
+    }*/
 
-    pub async fn write(&mut self, data: &[u8]) {
-        self.cdc_acm_class.write_packet(data).await.unwrap();
-    }
+    // pub async fn write(&mut self, data: &[u8]) {
+    //     self.cdc_acm_class.write_packet(data).await.unwrap();
+    // }
 }
 
 
-async fn echo<'d, T: Instance + 'd>(cdc_acm_class: &mut CdcAcmClass<'d, Driver<'d, T>>) -> Result<(), Disconnected> {
-    let mut buf = [0; 64];
+pub async fn echo<'d, T: Instance + 'd>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>) -> Result<(), Disconnected> {
+    //let mut buf = [0; 64];
 
     struct EnterBootloaderImpl;
 
@@ -100,15 +101,17 @@ async fn echo<'d, T: Instance + 'd>(cdc_acm_class: &mut CdcAcmClass<'d, Driver<'
 
     let mut parser = app::Parser::new(EnterBootloaderImpl);
 
-    loop {
-        let n = cdc_acm_class.read_packet(&mut buf).await?;
-        let data = &buf[..n];
-        cdc_acm_class.write_packet(b"echo: ").await?;
-        cdc_acm_class.write_packet(data).await?;
-        cdc_acm_class.write_packet(b"\n").await?;
+    //loop {
+        //let n = receiver.read_packet(&mut buf).await?;
+        //let data = &buf[..n];
+
+        sender.write_packet(b"echo: ").await?;
+        sender.write_packet(data).await?;
+        sender.write_packet(b"\n").await?;
 
         let answer = parser.parse_message(data);
-        cdc_acm_class.write_packet(answer).await?;
-        cdc_acm_class.write_packet(b"\n\n").await?;
-    }
+        sender.write_packet(answer).await?;
+        sender.write_packet(b"\n\n").await?;
+    //}
+    Ok(())
 }

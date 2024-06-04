@@ -28,14 +28,15 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
     }
 
     pub async fn read(&mut self) -> &[u8] {
-        // loop {
-        //     match self.sm.rx().wait_pull().await {
-        //         0 => return Direction::CounterClockwise,
-        //         1 => return Direction::Clockwise,
-        //         _ => {}
-        //     }
-        // }
-		b"sm done"
+        //loop {
+            // match self.sm.rx().wait_pull().await {
+            //     0 => return b"0",
+            //     1 => return b"1",
+            //     _ => return b"none"
+            // }
+        //}
+		let _ = self.sm; //dummy to prevent warning
+		b"sm done\n\n"
     }
 }
 

@@ -26,7 +26,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: build documentation
-        run: python3 doc/make_doc.py -v -p
+        run: python3 doc/run.py -b -v -p
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

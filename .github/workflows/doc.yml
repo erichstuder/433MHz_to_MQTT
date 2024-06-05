@@ -16,11 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,15 +24,32 @@ jobs:
       - name: build documentation
         run: python3 doc/run.py -b -v -p
       - name: Setup Pages
-        # deply only on selected branch
-        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: 'doc/build/html'
+  deploy:
+    needs: build
+    # deploy only on main branch
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: documentation
+          path: 'doc/build/html'
+      - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: 'doc/build/html'
       - name: Deploy to GitHub Pages
-        # deply only on selected branch
-        if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v4

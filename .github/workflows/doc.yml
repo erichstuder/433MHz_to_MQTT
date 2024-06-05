@@ -35,6 +35,6 @@ jobs:
           path: 'doc/build/html'
       - name: Deploy to GitHub Pages
         # deply only on selected branch
-        if: github.ref == 'refs/heads/wip'
+        if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v4

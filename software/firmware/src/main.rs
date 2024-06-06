@@ -27,10 +27,12 @@ async fn main(_spawner: Spawner) {
     let p = embassy_rp::init(Default::default());
     let Pio { mut common, sm0, .. } = Pio::new(p.PIO0, Irqs);
 
+    let buttons = app::Buttons::new();
     let mut remote_receiver = remote_receiver::RemoteReceiver::new(
         &mut common,
         sm0,
         p.PIN_28,
+        buttons,
     );
 
     let mut state = State::new();
@@ -42,10 +44,10 @@ async fn main(_spawner: Spawner) {
 
     let receiver_fut = async {
         loop {
-            let remote_read_result = remote_receiver.read().await;
+            let pressed_button = remote_receiver.read().await;
             {
                 let mut sender = sender.lock().await;
-                let _ = sender.write_packet(&remote_read_result).await;
+                let _ = sender.write_packet(pressed_button).await;
                 let _ = sender.write_packet(b"\n").await;
             }
         }

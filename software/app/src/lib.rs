@@ -8,3 +8,6 @@
 
 mod parser;
 pub use parser::{EnterBootloader, Parser};
+
+mod buttons;
+pub use buttons::Buttons;

@@ -4,12 +4,15 @@ use fixed::traits::ToFixed;
 use embassy_rp::pio::{Common, Config, FifoJoin, Instance, PioPin, ShiftDirection, StateMachine};
 use {defmt_rtt as _, panic_probe as _};
 
+use app::Buttons;
+
 pub struct RemoteReceiver<'d, T: Instance, const SM: usize> {
     sm: StateMachine<'d, T, SM>,
+    buttons: Buttons,
 }
 
 impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
-    pub fn new(pio: &mut Common<'d, T>, mut sm: StateMachine<'d, T, SM>, pin: impl PioPin) -> Self {
+    pub fn new(pio: &mut Common<'d, T>, mut sm: StateMachine<'d, T, SM>, pin: impl PioPin, buttons: Buttons) -> Self {
         let mut pin = pio.make_pio_pin(pin);
         pin.set_pull(Pull::None);
         sm.set_pin_dirs(pio::Direction::In, &[&pin]);
@@ -40,39 +43,14 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         cfg.use_program(&pio.load_program(&prg.program), &[]);
         sm.set_config(&cfg);
         sm.set_enable(true);
-        Self { sm }
+        Self { sm, buttons }
     }
 
-    pub async fn read(&mut self) -> &[u8] {
-        let mut last_value: Option<u32> = None;
-        let mut cnt: u8 = 0;
+    pub async fn read(&mut self) -> &[u8]{
         loop {
             let value = self.sm.rx().wait_pull().await;
-            match last_value {
-                Some(last) if value == last => {
-                    cnt += 1;
-                }
-                _ => {
-                    last_value = Some(value);
-                    cnt = 1;
-                }
-            }
-
-            // return the the value if it was read more than once in a row
-            if cnt >= 2 {
-                match value {
-                    0x017E9E90u32 => return b"button 1",
-                    0x017E9E88u32 => return b"button 2",
-                    0x017E9E98u32 => return b"button 3",
-                    0x017E9E84u32 => return b"button 4",
-                    0x017E9E94u32 => return b"button 5",
-                    0x017E9E8Cu32 => return b"button 6",
-                    0x017E9E9Cu32 => return b"button 7",
-                    0x017E9E82u32 => return b"button 8",
-                    0x017E9E92u32 => return b"button 9",
-                    0x017E9E8Au32 => return b"button 10",
-                    _ => return b"undefined button",
-                }
+            if let Some(button) = self.buttons.match_button(value) {
+                return button;
             }
         }
     }

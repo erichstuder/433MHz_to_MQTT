@@ -14,13 +14,18 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         pin.set_pull(Pull::None);
         sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
-        let prg = pio_proc::pio_asm!("wait 1 pin 0", "wait 0 pin 0", "in pins, 0", "push",);
+        let prg = pio_proc::pio_asm!(
+            "wait 1 pin 0 [5]",
+            "in pins, 0",
+            "push",
+            "wait 0 pin 0",
+        );
 
         let mut cfg = Config::default();
         cfg.set_in_pins(&[&pin]);
         cfg.fifo_join = FifoJoin::RxOnly;
         cfg.shift_in.direction = ShiftDirection::Left;
-        cfg.clock_divider = 1250.to_fixed(); //This should result in 125MHz / 1250 = 100kHz
+        cfg.clock_divider = 12500.to_fixed(); //This should result in 125MHz / 12500 = 10kHz
         cfg.use_program(&pio.load_program(&prg.program), &[]);
         sm.set_config(&cfg);
         sm.set_enable(true);
@@ -28,15 +33,15 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
     }
 
     pub async fn read(&mut self) -> &[u8] {
-        //loop {
-            // match self.sm.rx().wait_pull().await {
-            //     0 => return b"0",
-            //     1 => return b"1",
-            //     _ => return b"none"
-            // }
-        //}
-		let _ = self.sm; //dummy to prevent warning
-		b"sm done\n\n"
+        loop {
+            match self.sm.rx().wait_pull().await {
+                0 => return b"0",
+                1 => return b"1",
+                _ => return b"none"
+            }
+        }
+		// let _ = self.sm; //dummy to prevent warning
+		// b"sm done\n\n"
     }
 }
 

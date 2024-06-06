@@ -13,7 +13,7 @@ use embassy_rp::peripherals::PIO0;
 use embassy_rp::pio::{Pio, InterruptHandler};
 use embassy_usb::class::cdc_acm::State;
 use embassy_futures::join::join;
-use embassy_time::{Duration, Timer};
+//use embassy_time::{Duration, Timer};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
@@ -51,7 +51,7 @@ async fn main(_spawner: Spawner) {
                 let mut sender = sender.lock().await;
                 let _ = sender.write_packet(remote_read_result).await;
             }
-            Timer::after(Duration::from_secs(2)).await;
+            //Timer::after(Duration::from_secs(2)).await;
         }
     };
 
@@ -71,7 +71,7 @@ async fn main(_spawner: Spawner) {
                 let mut sender = sender.lock().await;
                 let _ = usb_communication::echo(data, &mut sender).await;
             }
-            Timer::after(Duration::from_millis(1)).await;
+            //Timer::after(Duration::from_millis(1)).await;
         }
     };
 

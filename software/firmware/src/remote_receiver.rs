@@ -15,33 +15,36 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
         let prg = pio_proc::pio_asm!(
-            "wait 1 pin 0 [5]",
-            "in pins, 0",
+            "startup:"
+                "set x 31", // 31 is maximum and sufficient
+            "assert_initial_low_pulse:",
+                "jmp pin startup"
+                "jmp x-- assert_initial_low_pulse",
+
+            "set x 24", // one less than the number of bits to read
+            "read_bits:",
+                "wait 1 pin 0 [5]",
+                "in pins, 1",
+                "wait 0 pin 0",
+                "jmp x-- read_bits",
+
             "push",
-            "wait 0 pin 0",
         );
 
         let mut cfg = Config::default();
         cfg.set_in_pins(&[&pin]);
+        cfg.set_jmp_pin(&pin);
         cfg.fifo_join = FifoJoin::RxOnly;
         cfg.shift_in.direction = ShiftDirection::Left;
-        cfg.clock_divider = 12500.to_fixed(); //This should result in 125MHz / 12500 = 10kHz
+        cfg.clock_divider = 12500.to_fixed(); // 125MHz / 12500 = 10kHz
         cfg.use_program(&pio.load_program(&prg.program), &[]);
         sm.set_config(&cfg);
         sm.set_enable(true);
         Self { sm }
     }
 
-    pub async fn read(&mut self) -> &[u8] {
-        loop {
-            match self.sm.rx().wait_pull().await {
-                0 => return b"0",
-                1 => return b"1",
-                _ => return b"none"
-            }
-        }
-		// let _ = self.sm; //dummy to prevent warning
-		// b"sm done\n\n"
+    pub async fn read(&mut self) -> u32 {
+        self.sm.rx().wait_pull().await
     }
 }
 

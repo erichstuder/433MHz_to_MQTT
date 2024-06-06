@@ -44,6 +44,24 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
     }
 
     pub async fn read(&mut self) -> u32 {
-        self.sm.rx().wait_pull().await
+        let mut last_value: Option<u32> = None;
+        let mut cnt: u8 = 0;
+        loop {
+            let value = self.sm.rx().wait_pull().await;
+            match last_value {
+                Some(last) if value == last => {
+                    cnt += 1;
+                }
+                _ => {
+                    last_value = Some(value);
+                    cnt = 1;
+                }
+            }
+
+            // return the the value if it was read more than once in a row
+            if cnt >= 2 {
+                return value;
+            }
+        }
     }
 }

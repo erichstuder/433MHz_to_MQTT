@@ -47,8 +47,3 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         self.sm.rx().wait_pull().await
     }
 }
-
-// pub enum Direction {
-//     Clockwise,
-//     CounterClockwise,
-// }

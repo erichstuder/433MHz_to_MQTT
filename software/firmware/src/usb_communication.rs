@@ -3,9 +3,9 @@ use embassy_rp::usb::{Driver, Instance};
 use embassy_usb::{Builder, Config, UsbDevice};
 use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
-use app;
-//use embassy_futures::join::join;
 use embassy_usb::class::cdc_acm::Sender;
+
+use app;
 
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
@@ -70,27 +70,9 @@ impl<'a> UsbCommunication<'a> {
             usb,
         }
     }
-
-    /*pub async fn run(&mut self) {
-        let cdc_acm_class = &mut self.cdc_acm_class;
-        let echo_fut = async {
-            loop {
-                cdc_acm_class.wait_connection().await;
-                let _ = echo(cdc_acm_class).await;
-            }
-        };
-        join(self.usb.run(), echo_fut).await;
-    }*/
-
-    // pub async fn write(&mut self, data: &[u8]) {
-    //     self.cdc_acm_class.write_packet(data).await.unwrap();
-    // }
 }
 
-
 pub async fn echo<'d, T: Instance + 'd>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>) -> Result<(), Disconnected> {
-    //let mut buf = [0; 64];
-
     struct EnterBootloaderImpl;
 
     impl app::EnterBootloader for EnterBootloaderImpl {
@@ -100,18 +82,12 @@ pub async fn echo<'d, T: Instance + 'd>(data: &[u8], sender: &mut Sender<'d, Dri
     }
 
     let mut parser = app::Parser::new(EnterBootloaderImpl);
+    sender.write_packet(b"echo: ").await?;
+    sender.write_packet(data).await?;
+    sender.write_packet(b"\n").await?;
 
-    //loop {
-        //let n = receiver.read_packet(&mut buf).await?;
-        //let data = &buf[..n];
-
-        sender.write_packet(b"echo: ").await?;
-        sender.write_packet(data).await?;
-        sender.write_packet(b"\n").await?;
-
-        let answer = parser.parse_message(data);
-        sender.write_packet(answer).await?;
-        sender.write_packet(b"\n\n").await?;
-    //}
+    let answer = parser.parse_message(data);
+    sender.write_packet(answer).await?;
+    sender.write_packet(b"\n\n").await?;
     Ok(())
 }

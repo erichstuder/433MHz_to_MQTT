@@ -43,7 +43,7 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         Self { sm }
     }
 
-    pub async fn read(&mut self) -> u32 {
+    pub async fn read(&mut self) -> &[u8] {
         let mut last_value: Option<u32> = None;
         let mut cnt: u8 = 0;
         loop {
@@ -60,7 +60,19 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
 
             // return the the value if it was read more than once in a row
             if cnt >= 2 {
-                return value;
+                match value {
+                    0x017E9E90u32 => return b"button 1",
+                    0x017E9E88u32 => return b"button 2",
+                    0x017E9E98u32 => return b"button 3",
+                    0x017E9E84u32 => return b"button 4",
+                    0x017E9E94u32 => return b"button 5",
+                    0x017E9E8Cu32 => return b"button 6",
+                    0x017E9E9Cu32 => return b"button 7",
+                    0x017E9E82u32 => return b"button 8",
+                    0x017E9E92u32 => return b"button 9",
+                    0x017E9E8Au32 => return b"button 10",
+                    _ => return b"undefined button",
+                }
             }
         }
     }

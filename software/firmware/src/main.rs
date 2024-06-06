@@ -45,7 +45,7 @@ async fn main(_spawner: Spawner) {
             let remote_read_result = remote_receiver.read().await;
             {
                 let mut sender = sender.lock().await;
-                let _ = sender.write_packet(&remote_read_result.to_ne_bytes()).await;
+                let _ = sender.write_packet(&remote_read_result).await;
                 let _ = sender.write_packet(b"\n").await;
             }
         }

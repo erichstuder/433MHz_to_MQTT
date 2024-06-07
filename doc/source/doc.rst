@@ -17,8 +17,6 @@ System Scope and Context
      - - Receiver for the 433MHz signal.
        - It is powered by the RPi Pico W
        - This component is bought as a module.
-   * - Signal-Converter
-     - As the 433MHz Receiver outputs a 5V signal and the RPi Pico W only accepts 3.3V, a simple signal convertion is needed.
    * - RPi Pico W
      - The Raspberry Pi Pico W receives the data from the 433MHz Receiver and forwards it to the MQTT Broker.
    * - 433MHz Sender

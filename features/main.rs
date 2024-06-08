@@ -1,7 +1,4 @@
-extern crate cucumber;
-extern crate futures;
-
-use cucumber::{given, when, then, World};
+use cucumber::{given, then, when, World};
 
 // These `Cat` definitions would normally be inside your project's code,
 // not test code, but we create them here for the show case.
@@ -40,9 +37,14 @@ fn not_hungry(world: &mut AnimalWorld) {
 }
 
 // This runs before everything else, so you can setup things here.
-fn main() {
+#[tokio::main]
+async fn main() {
     // You may choose any executor you like (`tokio`, `async-std`, etc.).
     // You may even have an `async` main, it doesn't matter. The point is that
     // Cucumber is composable. :)
-    futures::executor::block_on(AnimalWorld::run("."));
+
+    AnimalWorld::cucumber()
+    .fail_on_skipped()
+    .run_and_exit(".")
+    .await;
 }

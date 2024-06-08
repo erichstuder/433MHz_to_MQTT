@@ -9,6 +9,7 @@ utf8parse = "0.2.2"
 [dev-dependencies]
 cucumber = "0.21.0"
 futures = "0.3"
+tokio = { version = "1.38.0", features = ["full"] }
 
 [[test]]
 name = "main" # this should be the same as the filename of your test target

@@ -54,7 +54,7 @@ def run_container(container_tag, work_dir):
     if arguments.keep_open:
         commands = 'bash'
     elif arguments.run:
-        commands = 'set -e\n cd features \n cargo test'
+        commands = 'set -e\n cd features/steps \n cargo test'
     else:
         return
 

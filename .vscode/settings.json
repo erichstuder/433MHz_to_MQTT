@@ -3,7 +3,7 @@
 	"rust-analyzer.linkedProjects": [
 		"software/firmware/Cargo.toml",
 		"software/app/Cargo.toml",
-		"features/Cargo.toml",
+		"features/steps/Cargo.toml",
 	],
 
 	// This is a workaround to suppress "error[E0463]: can't find crate for `test`"

@@ -1,0 +1,16 @@
+[package]
+name = "example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+utf8parse = "0.2.2"
+
+[dev-dependencies]
+cucumber = "0.21.0"
+futures = "0.3"
+
+[[test]]
+name = "main" # this should be the same as the filename of your test target
+path = "main.rs"
+harness = false  # allows Cucumber to print output instead of libtest

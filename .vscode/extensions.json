@@ -2,6 +2,7 @@
 	"recommendations": [
 		"tamasfe.even-better-toml",
 		"1yib.rust-bundle",
-		"hediet.vscode-drawio"
+		"hediet.vscode-drawio",
+		"cucumberopen.cucumber-official"
 	]
 }

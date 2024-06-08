@@ -24,20 +24,21 @@ def main():
 
     work_dir = str(pathlib.Path(__file__).parent.resolve())
     if arguments.help_all:
-        subprocess.run(['python3', work_dir + '/run.py', '--help'])
+        exit(subprocess.run(['python3', work_dir + '/run.py', '--help']).returncode)
         print('\n\n*** below are the help messages of the subscripts ***')
         for _, value in scripts.items():
             print('\n\n*** ' + value + ' ***')
             sys.stdout.flush()
-            subprocess.run(['python3', work_dir + '/' + value, '--help'])
+            exit(subprocess.run(['python3', work_dir + '/' + value, '--help']).returncode)
     elif arguments.features is not None:
-        subprocess.run(['python3', work_dir + '/' + scripts['features']] + arguments.features)
+        exit(subprocess.run(['python3', work_dir + '/' + scripts['features']] + arguments.features).returncode)
     elif arguments.software is not None:
-        subprocess.run(['python3', work_dir + '/' + scripts['software']] + arguments.software)
+        exit(subprocess.run(['python3', work_dir + '/' + scripts['software']] + arguments.software).returncode)
     elif arguments.doc is not None:
-        subprocess.run(['python3', work_dir + '/' + scripts['doc']] + arguments.doc)
+        exit(subprocess.run(['python3', work_dir + '/' + scripts['doc']] + arguments.doc).returncode)
     else:
         print('Unknown argument')
+        exit(2)
 
 
 if __name__ == "__main__":

@@ -6,8 +6,6 @@ import argparse
 import os
 import subprocess
 import datetime
-import serial
-import time
 import pathlib
 
 def parse_arguments():

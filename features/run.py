@@ -9,7 +9,7 @@ import datetime
 import pathlib
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='Execute common software tasks')
+    parser = argparse.ArgumentParser(description='Execute feature files')
 
     parser.add_argument('--run', '-r',
                         action='store_true',

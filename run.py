@@ -24,12 +24,16 @@ def main():
 
     work_dir = str(pathlib.Path(__file__).parent.resolve())
     if arguments.help_all:
-        exit(subprocess.run(['python3', work_dir + '/run.py', '--help']).returncode)
+        result = subprocess.run(['python3', work_dir + '/run.py', '--help'])
+        if result.returncode != 0:
+            exit(result.returncode)
         print('\n\n*** below are the help messages of the subscripts ***')
         for _, value in scripts.items():
             print('\n\n*** ' + value + ' ***')
             sys.stdout.flush()
-            exit(subprocess.run(['python3', work_dir + '/' + value, '--help']).returncode)
+            result = subprocess.run(['python3', work_dir + '/' + value, '--help'])
+            if result.returncode != 0:
+                exit(result.returncode)
     elif arguments.features is not None:
         exit(subprocess.run(['python3', work_dir + '/' + scripts['features']] + arguments.features).returncode)
     elif arguments.software is not None:

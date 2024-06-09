@@ -14,7 +14,7 @@ Welcome to 433MHz_to_MQTT's documentation!
    development_environment
    file_structure
    build_scripts
-
+   auto_generated/firmware/main
 
 Indices and tables
 ==================

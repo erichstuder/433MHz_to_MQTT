@@ -1,3 +1,11 @@
+//! This is the main program.
+//! and antoher line.
+//!
+//! .. uml::
+//!
+//!    Alice -> Bob: Request
+//!    Bob --> Alice: Response
+
 #![no_std]
 #![no_main]
 

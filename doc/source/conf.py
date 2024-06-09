@@ -14,10 +14,18 @@ author = 'erichstuder'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-	'sphinxcontrib.drawio',
-	'sphinx_toolbox.collapse',
-	'sphinxcontrib.programoutput',
+    'sphinxcontrib.drawio',
+    'sphinxcontrib.plantuml',
+    'sphinx_toolbox.collapse',
+    'sphinxcontrib.programoutput',
+    'sphinxcontrib_rust',
 ]
+
+rust_crates = {
+    'firmware': '../software/firmware/src',
+}
+rust_doc_dir = 'source/auto_generated'
+rust_rustdocgen = '/root/.cargo/bin/sphinx-rustdocgen'
 
 templates_path = ['_templates']
 exclude_patterns = []

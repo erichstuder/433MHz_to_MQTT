@@ -29,7 +29,7 @@ pub struct UsbCommunication<'a> {
 
 impl<'a> UsbCommunication<'a> {
     pub fn new(usb: USB, state: &'a mut State<'a>) -> Self{
-        let mut config = Config::new(0xc0de, 0xcafe);
+        let mut config = Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
         config.manufacturer = Some("github.com/erichstuder");
         config.product = Some("433MHz_to_MQTT");
         config.serial_number = Some("12345678");

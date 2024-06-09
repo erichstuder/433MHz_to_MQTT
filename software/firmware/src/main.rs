@@ -3,6 +3,7 @@
 
 mod usb_communication;
 mod remote_receiver;
+mod persistency;
 
 use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::Spawner;

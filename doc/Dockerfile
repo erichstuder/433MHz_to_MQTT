@@ -12,4 +12,8 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
 
 RUN apt update && apt install -y xvfb tree
 RUN python3 -m pip install sphinx sphinx-autobuild sphinxcontrib-drawio sphinxcontrib-plantuml \
-                           sphinx-toolbox sphinxcontrib-programoutput pyserial sphinxcontrib-rust
+                           sphinx-toolbox sphinxcontrib-programoutput pyserial
+
+# install pre-relase of sphinxcontrib-rust
+RUN . $HOME/.cargo/env && \
+    python3 -m pip install git+https://git@gitlab.com/munir0b0t/sphinxcontrib-rust@main

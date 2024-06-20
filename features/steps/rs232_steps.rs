@@ -26,7 +26,7 @@ fn find_serial_port() -> Option<String> {
 fn open_serial(serial_port_name: &Option<String>) -> Box<dyn SerialPort>{
     if let Some(s) = serial_port_name {
         let port = serialport::new(s, 9600)
-            .timeout(Duration::from_millis(1000))
+            .timeout(Duration::from_secs(2))
             .open()
             .expect("Failed to open port");
         port
@@ -57,5 +57,6 @@ fn serial_connection(world: &mut MyWorld) {
     let mut port = open_serial(&world.serial_port_name);
     send("ping", &mut port);
     let answer = String::from_utf8(read(&mut port)).expect("Failed to read from serial port");
-    assert_eq!(answer, "pong");
+    let answer = answer.trim_end_matches('\0');
+    assert_eq!(answer, "pong\n");
 }

@@ -23,6 +23,9 @@ impl<E: EnterBootloader> Parser<E> {
             // Note: probably this message won't be seen, because of immediate restart.
             b"entering bootloader now"
         }
+        else if msg.eq(b"ping") {
+            b"pong"
+        }
         else {
             b"nothing to parse"
         }
@@ -56,6 +59,16 @@ mod tests {
 
         let answer = parser.parse_message(b"enter bootloader");
         assert_eq!(answer, b"entering bootloader now");
+    }
+
+    #[test]
+    fn test_ping_pong() {
+        let mut parser = Parser::new(
+            MockEnterBootloader::new(),
+        );
+
+        let answer = parser.parse_message(b"ping");
+        assert_eq!(answer, b"pong");
     }
 
     #[test]

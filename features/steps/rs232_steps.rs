@@ -1,9 +1,9 @@
 use crate::world::MyWorld;
-use cucumber::{given, /*then, when*/};
+use cucumber::{given, then, /*when*/};
 
-//use serialport::prelude::*;
-//use std::ffi::OsStr;
 use udev::{Enumerator, /*Device*/};
+use std::time::Duration;
+use serialport::SerialPort;
 
 
 fn find_serial_port() -> Option<String> {
@@ -23,35 +23,39 @@ fn find_serial_port() -> Option<String> {
     None
 }
 
-fn send(_message: &str) {
-    let serial_port_name = find_serial_port();
+fn open_serial(serial_port_name: &Option<String>) -> Box<dyn SerialPort>{
     if let Some(s) = serial_port_name {
-        //printout serial port name
-        println!("Serial port name: {}", s);
+        let port = serialport::new(s, 9600)
+            .timeout(Duration::from_millis(1000))
+            .open()
+            .expect("Failed to open port");
+        port
     }
     else {
-        println!("Serial port not found");
+        panic!("serial port name is not set");
     }
-    println!("dooooooooooooooooooooooooooooooooooooooone");
+}
 
-    // if let Some(s) = serial_port_name {
-    //     let mut port = serialport::open(&s).expect("Failed to open serial port");
+fn send(message: &str, port: &mut Box<dyn SerialPort>) {
+    port.write(message.as_bytes()).expect("Failed to write to serial port");
+}
 
-    //     let mut settings: SerialPortSettings = Default::default();
-    //     settings.timeout = Duration::from_millis(100);
-    //     settings.baud_rate = 9600;
-    //     settings.data_bits = DataBits::Eight;
-    //     settings.parity = Parity::None;
-    //     settings.stop_bits = StopBits::One;
-    //     settings.flow_control = FlowControl::None;
-    //     port.set_all(&settings).expect("Failed to set port settings");
-
-    //     port.write(message.as_bytes()).expect("Failed to write to serial port");
-    // }
+fn read(port: &mut Box<dyn SerialPort>) -> Vec<u8>{
+    let mut serial_buf: Vec<u8> = vec![0; 32];
+    port.read(serial_buf.as_mut_slice()).expect("Found no data!");
+    serial_buf
 }
 
 #[given("the connection to the device via USB")]
 fn usb_connection(world: &mut MyWorld) {
-    let _ = world; //prevent unused warning for the moment
-    send("dummy");
+    world.serial_port_name = find_serial_port();
+    assert!(world.serial_port_name.is_some());
+}
+
+#[then("a serial connection can be established")]
+fn serial_connection(world: &mut MyWorld) {
+    let mut port = open_serial(&world.serial_port_name);
+    send("ping", &mut port);
+    let answer = String::from_utf8(read(&mut port)).expect("Failed to read from serial port");
+    assert_eq!(answer, "pong");
 }

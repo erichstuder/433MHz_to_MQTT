@@ -18,16 +18,14 @@ impl<E: EnterBootloader> Parser<E> {
     }
 
     pub fn parse_message(&mut self, msg: &[u8]) -> &[u8] {
-        if msg.eq(b"enter bootloader") {
-            self.enter_bootloader.call();
-            // Note: probably this message won't be seen, because of immediate restart.
-            b"entering bootloader now"
-        }
-        else if msg.eq(b"ping") {
-            b"pong"
-        }
-        else {
-            b"nothing to parse"
+        match msg {
+            b"enter bootloader\n" => {
+                self.enter_bootloader.call();
+                // Note: probably this message won't be seen, because of immediate restart.
+                b"entering bootloader now"
+            },
+            b"ping" => b"pong\n",
+            _ => b"nothing to parse\n",
         }
     }
 }

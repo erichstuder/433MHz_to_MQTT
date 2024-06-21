@@ -84,6 +84,5 @@ pub async fn echo<'d, T: Instance + 'd>(data: &[u8], sender: &mut Sender<'d, Dri
     let mut parser = app::Parser::new(EnterBootloaderImpl);
     let answer = parser.parse_message(data);
     sender.write_packet(answer).await?;
-    sender.write_packet(b"\n").await?;
     Ok(())
 }

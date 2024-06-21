@@ -1,5 +1,7 @@
 mod world;
+mod rs232;
 mod rs232_steps;
+mod persistency_steps;
 
 use cucumber::World;
 use world::MyWorld;

@@ -19,10 +19,10 @@ impl<E: EnterBootloader> Parser<E> {
 
     pub fn parse_message(&mut self, msg: &[u8]) -> &[u8] {
         match msg {
-            b"enter bootloader\n" => {
+            b"enter bootloader" => {
                 self.enter_bootloader.call();
                 // Note: probably this message won't be seen, because of immediate restart.
-                b"entering bootloader now"
+                b"entering bootloader now\n"
             },
             b"ping" => b"pong\n",
             _ => b"nothing to parse\n",
@@ -56,7 +56,7 @@ mod tests {
         );
 
         let answer = parser.parse_message(b"enter bootloader");
-        assert_eq!(answer, b"entering bootloader now");
+        assert_eq!(answer, b"entering bootloader now\n");
     }
 
     #[test]
@@ -66,7 +66,7 @@ mod tests {
         );
 
         let answer = parser.parse_message(b"ping");
-        assert_eq!(answer, b"pong");
+        assert_eq!(answer, b"pong\n");
     }
 
     #[test]
@@ -76,6 +76,6 @@ mod tests {
         );
 
         let answer = parser.parse_message(b"no command");
-        assert_eq!(answer, b"nothing to parse");
+        assert_eq!(answer, b"nothing to parse\n");
     }
 }

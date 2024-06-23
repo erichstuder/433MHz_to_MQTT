@@ -3,6 +3,7 @@
 		"tamasfe.even-better-toml",
 		"1yib.rust-bundle",
 		"hediet.vscode-drawio",
-		"cucumberopen.cucumber-official"
+		"cucumberopen.cucumber-official",
+		"probe-rs.probe-rs-debugger"
 	]
 }

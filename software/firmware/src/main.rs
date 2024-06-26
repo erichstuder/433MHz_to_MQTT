@@ -86,6 +86,8 @@ async fn main(_spawner: Spawner) {
 
         let persistency = PersistencyImpl::new(p.FLASH, p.DMA_CH0);
         let mut parser = app::Parser::new(EnterBootloaderImpl, persistency);
+        parser.parse_message(b"store wifi_ssid myID"); ////DEBUG
+        //parser.parse_message(b"read wifi_ssid"); ///DEBUGGGG
 
         loop {
             receiver.wait_connection().await;

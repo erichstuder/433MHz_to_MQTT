@@ -2,9 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "cargo build",
-            "type": "cargo",
-            "command": "build",
+            "label": "firmware_build",
+            "type": "shell",
+            "command": "python3 run.py -b",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -13,7 +13,7 @@
                 "$rustc"
             ],
             "options": {
-                "cwd": "${workspaceFolder}/software/firmware"
+                "cwd": "${workspaceFolder}/software"
             }
         }
     ]

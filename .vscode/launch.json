@@ -5,7 +5,7 @@
             "type": "probe-rs-debug",
             "request": "launch",
             "name": "probe-rs debug",
-            "preLaunchTask": "cargo build",
+            "preLaunchTask": "firmware_build",
             "cwd": "${workspaceFolder}/software/firmware",
             "connectUnderReset": false,
             "chip": "RP2040",

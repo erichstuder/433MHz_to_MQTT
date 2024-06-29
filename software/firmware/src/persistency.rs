@@ -11,10 +11,13 @@ struct Data {
     mqtt_broker_password: [u8; 32],
 }
 
-const ADDR_OFFSET: u32 = 0x100000;
+// these values must in accordance with memory.x
+const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
+const DATA_SIZE : usize = ERASE_SIZE; // must be a multiple of ERASE_SIZE.
+const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - ERASE_SIZE; // put data at the end of flash memory.
 
 pub struct Persistency {
-    flash: Flash<'static, FLASH, Async, {2*1024*1024}>,
+    flash: Flash<'static, FLASH, Async, FLASH_SIZE>,
     data: Data,
 }
 
@@ -35,7 +38,7 @@ impl Persistency {
     }
 
     fn store(&mut self) {
-        let mut data: [u8; ERASE_SIZE] = [0x00; ERASE_SIZE];
+        let mut data: [u8; DATA_SIZE] = [0x00; DATA_SIZE];
 
         data[0..32].copy_from_slice(&self.data.wifi_ssid);
         data[32..64].copy_from_slice(&self.data.wifi_password);
@@ -43,13 +46,13 @@ impl Persistency {
         data[96..128].copy_from_slice(&self.data.mqtt_broker_username);
         data[128..160].copy_from_slice(&self.data.mqtt_broker_password);
 
-        let result1 = self.flash.blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32);
-        let result3 = self.flash.blocking_write(ADDR_OFFSET, &mut data);
+        let result1 = self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32);
+        let result3 = self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data);
     }
 
     fn read(&mut self) {
-        let mut data: [u8; ERASE_SIZE] = [0; ERASE_SIZE];
-        let result = self.flash.blocking_read(ADDR_OFFSET, &mut data);
+        let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
+        let result = self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data);
 
         self.data.wifi_ssid.copy_from_slice(&data[0..32]);
         self.data.wifi_password.copy_from_slice(&data[32..64]);

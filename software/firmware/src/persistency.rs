@@ -1,8 +1,7 @@
 //use embassy_embedded_hal::flash;
 use embassy_rp::flash::{Flash, Async, ERASE_SIZE};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
-use core::any::Any;
-use core::mem::size_of;
+use core::cmp::min;
 
 struct Data {
     wifi_ssid: [u8; 32],
@@ -12,7 +11,6 @@ struct Data {
     mqtt_broker_password: [u8; 32],
 }
 
-const DATA_SIZE: usize = size_of::<Data>();
 const ADDR_OFFSET: u32 = 0x100000;
 
 pub struct Persistency {
@@ -39,8 +37,6 @@ impl Persistency {
     fn store(&mut self) {
         let mut data: [u8; ERASE_SIZE] = [0x00; ERASE_SIZE];
 
-        //let _result0 = self.flash.blocking_read(ADDR_OFFSET, &mut data);
-
         data[0..32].copy_from_slice(&self.data.wifi_ssid);
         data[32..64].copy_from_slice(&self.data.wifi_password);
         data[64..96].copy_from_slice(&self.data.mqtt_host_ip);
@@ -48,9 +44,7 @@ impl Persistency {
         data[128..160].copy_from_slice(&self.data.mqtt_broker_password);
 
         let result1 = self.flash.blocking_erase(ADDR_OFFSET, ADDR_OFFSET + ERASE_SIZE as u32);
-        //let _result2 = self.flash.blocking_read(ADDR_OFFSET, &mut data);
         let result3 = self.flash.blocking_write(ADDR_OFFSET, &mut data);
-        //let _result4 = self.flash.blocking_read(ADDR_OFFSET, &mut data);
     }
 
     fn read(&mut self) {
@@ -65,7 +59,10 @@ impl Persistency {
     }
 
     pub fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]) {
-        self.data.wifi_ssid.copy_from_slice(wifi_ssid);//wifi_ssid.try_into().unwrap();
+        self.data.wifi_ssid.fill('\0' as u8);
+
+        let copy_len = min(wifi_ssid.len(), self.data.wifi_ssid.len());
+        self.data.wifi_ssid[..copy_len].copy_from_slice(wifi_ssid[..copy_len].as_ref());
         self.store();
     }
 

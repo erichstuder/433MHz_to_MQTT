@@ -11,7 +11,7 @@ struct Data {
     mqtt_broker_password: [u8; 32],
 }
 
-// these values must in accordance with memory.x
+// These values must align with the specifications in memory.x.
 const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
 const DATA_SIZE : usize = ERASE_SIZE; // must be a multiple of ERASE_SIZE.
 const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - ERASE_SIZE; // put data at the end of flash memory.

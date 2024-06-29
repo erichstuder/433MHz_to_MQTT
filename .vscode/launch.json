@@ -16,7 +16,8 @@
             "coreConfigs": [
                 {
                     "coreIndex": 0,
-                    "programBinary": "tmp/thumbv6m-none-eabi/debug/firmware"
+                    "programBinary": "tmp/thumbv6m-none-eabi/debug/firmware",
+                    "rttEnabled": true
                 }
             ]
         }

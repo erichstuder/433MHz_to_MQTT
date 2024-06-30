@@ -6,8 +6,7 @@ pub trait EnterBootloader {
     fn call(&mut self);
 }
 
-#[cfg_attr(test, automock)]
-
+#[derive(Debug, PartialEq)]
 pub enum DataField {
     WifiSsid,
     WifiPassword,
@@ -16,6 +15,7 @@ pub enum DataField {
     MqttBrokerPassword,
 }
 
+#[cfg_attr(test, automock)]
 pub trait Persistency {
     fn store(&mut self, value: &[u8], field: DataField);
     fn read(&mut self, field: DataField) -> &[u8];
@@ -154,49 +154,20 @@ mod tests {
     #[test]
     fn test_store_command() {
         let commands = vec![
-            (b"wifi_ssid".as_ref(),            b"myValue".as_ref()),
-            (b"wifi_password".as_ref(),        b"12345".as_ref()),
-            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref()),
-            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref()),
-            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref()),
+            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       DataField::WifiSsid),
+            (b"wifi_password".as_ref(),        b"12345".as_ref(),         DataField::WifiPassword),
+            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), DataField::MqttHostIp),
+            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     DataField::MqttBrokerUsername),
+            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     DataField::MqttBrokerPassword),
         ];
 
-        for (command, value) in commands {
+        for (command, value, field) in commands {
             let mut mock_persistency = MockPersistency::new();
 
-            if command == b"wifi_ssid" {
-                mock_persistency.expect_store_wifi_ssid()
-                    .with(eq(value))
-                    .times(1)
-                    .returning(|_| ());
-            }
-            else if command == b"wifi_password" {
-                mock_persistency.expect_store_wifi_password()
-                    .with(eq(value))
-                    .times(1)
-                    .returning(|_| ());
-            }
-            else if command == b"mqtt_host_ip" {
-                mock_persistency.expect_store_mqtt_host_ip()
-                    .with(eq(value))
-                    .times(1)
-                    .returning(|_| ());
-            }
-            else if command == b"mqtt_broker_username" {
-                mock_persistency.expect_store_mqtt_broker_username()
-                    .with(eq(value))
-                    .times(1)
-                    .returning(|_| ());
-            }
-            else if command == b"mqtt_broker_password" {
-                mock_persistency.expect_store_mqtt_broker_password()
-                    .with(eq(value))
-                    .times(1)
-                    .returning(|_| ());
-            }
-            else {
-                panic!("unknown command");
-            }
+            mock_persistency.expect_store()
+                .with(eq(value), eq(field))
+                .times(1)
+                .returning(|_, _| ());
 
             let mut parser = Parser::new(
                 MockEnterBootloader::new(),
@@ -217,44 +188,20 @@ mod tests {
     // #[test]
     // fn test_read_command() {
     //     let commands = vec![
-    //         (b"wifi_ssid".as_ref(),            b"myValue".as_ref()),
-    //         // (b"wifi_password".as_ref(),        b"12345".as_ref()),
-    //         // (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref()),
-    //         // (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref()),
-    //         // (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref()),
+    //         (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       DataField::WifiSsid),
+    //         (b"wifi_password".as_ref(),        b"12345".as_ref(),         DataField::WifiPassword),
+    //         (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), DataField::MqttHostIp),
+    //         (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     DataField::MqttBrokerUsername),
+    //         (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     DataField::MqttBrokerPassword),
     //     ];
 
-    //     for (command, value) in commands {
+    //     for (command, value, field) in commands {
     //         let mut mock_persistency = MockPersistency::new();
 
-    //         if command == b"wifi_ssid" {
-    //             mock_persistency.expect_read_wifi_ssid()
-    //                 .times(1)
-    //                 .returning(); //TODO: for any reason returning is not found here. No clue what is going on.
-    //         }
-    //         // else if command == b"wifi_password" {
-    //         //     mock_persistency.expect_read_wifi_password()
-    //         //         .times(1)
-    //         //         .returning(|_| ());
-    //         // }
-    //         // else if command == b"mqtt_host_ip" {
-    //         //     mock_persistency.expect_read_mqtt_host_ip()
-    //         //         .times(1)
-    //         //         .returning(|_| ());
-    //         // }
-    //         // else if command == b"mqtt_broker_username" {
-    //         //     mock_persistency.expect_read_mqtt_broker_username()
-    //         //         .times(1)
-    //         //         .returning(|_| ());
-    //         // }
-    //         // else if command == b"mqtt_broker_password" {
-    //         //     mock_persistency.expect_read_mqtt_broker_password()
-    //         //         .times(1)
-    //         //         .returning(|_| ());
-    //         // }
-    //         // else {
-    //         //     panic!("unknown command");
-    //         // }
+    //         mock_persistency.expect_read()
+    //             .with(eq(field))
+    //             .times(1)
+    //             .returning(|_| value); //TODO: for any reason returning is not found here. Don't know why.
 
     //         let mut parser = Parser::new(
     //             MockEnterBootloader::new(),

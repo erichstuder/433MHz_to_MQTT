@@ -7,18 +7,18 @@ pub trait EnterBootloader {
 }
 
 #[cfg_attr(test, automock)]
-pub trait Persistency {
-    fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]);
-    fn store_wifi_password(&mut self, wifi_password: &[u8]);
-    fn store_mqtt_host_ip(&mut self, mqtt_host_ip: &[u8]);
-    fn store_mqtt_broker_username(&mut self, mqtt_broker_username: &[u8]);
-    fn store_mqtt_broker_password(&mut self, mqtt_broker_password: &[u8]);
 
-    fn read_wifi_ssid(&mut self) -> &[u8];
-    fn read_wifi_password(&mut self) -> &[u8];
-    fn read_mqtt_host_ip(&mut self) -> &[u8];
-    fn read_mqtt_broker_username(&mut self) -> &[u8];
-    fn read_mqtt_broker_password(&mut self) -> &[u8];
+pub enum DataField {
+    WifiSsid,
+    WifiPassword,
+    MqttHostIp,
+    MqttBrokerUsername,
+    MqttBrokerPassword,
+}
+
+pub trait Persistency {
+    fn store(&mut self, value: &[u8], field: DataField);
+    fn read(&mut self, field: DataField) -> &[u8];
 }
 
 pub struct Parser<E: EnterBootloader, P: Persistency> {
@@ -43,23 +43,23 @@ impl<E: EnterBootloader, P: Persistency> Parser<E, P> {
 
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
-            self.persistency.store_wifi_ssid(value);
+            self.persistency.store(value, DataField::WifiSsid);
         }
         else if parameters.starts_with(WIFI_PASSWORD) {
             let value = &parameters[WIFI_PASSWORD.len()..];
-            self.persistency.store_wifi_password(value);
+            self.persistency.store(value, DataField::WifiPassword);
         }
         else if parameters.starts_with(MQTT_HOST_IP) {
             let value = &parameters[MQTT_HOST_IP.len()..];
-            self.persistency.store_mqtt_host_ip(value);
+            self.persistency.store(value, DataField::MqttHostIp);
         }
         else if parameters.starts_with(MQTT_BROKER_USERNAME) {
             let value = &parameters[MQTT_BROKER_USERNAME.len()..];
-            self.persistency.store_mqtt_broker_username(value);
+            self.persistency.store(value, DataField::MqttBrokerUsername);
         }
         else if parameters.starts_with(MQTT_BROKER_PASSWORD) {
             let value = &parameters[MQTT_BROKER_PASSWORD.len()..];
-            self.persistency.store_mqtt_broker_password(value);
+            self.persistency.store(value, DataField::MqttBrokerPassword);
         }
         else {
             panic!("unknown parameter");
@@ -68,19 +68,19 @@ impl<E: EnterBootloader, P: Persistency> Parser<E, P> {
 
     fn parse_read_command(&mut self, parameters: &[u8]) -> &[u8]{
         if parameters.starts_with(b"wifi_ssid") {
-            return self.persistency.read_wifi_ssid();
+            return self.persistency.read(DataField::WifiSsid);
         }
         else if parameters.starts_with(b"wifi_password") {
-            return self.persistency.read_wifi_password();
+            return self.persistency.read(DataField::WifiPassword);
         }
         else if parameters.starts_with(b"mqtt_host_ip") {
-            return self.persistency.read_mqtt_host_ip();
+            return self.persistency.read(DataField::MqttHostIp);
         }
         else if parameters.starts_with(b"mqtt_broker_username") {
-            return self.persistency.read_mqtt_broker_username();
+            return self.persistency.read(DataField::MqttBrokerUsername);
         }
         else if parameters.starts_with(b"mqtt_broker_password") {
-            return self.persistency.read_mqtt_broker_password();
+            return self.persistency.read(DataField::MqttBrokerPassword);
         }
         else {
             panic!("unknown parameter");

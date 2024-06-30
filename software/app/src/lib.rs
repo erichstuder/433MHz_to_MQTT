@@ -7,7 +7,7 @@
 #![cfg_attr(not(test), no_std)]
 
 mod parser;
-pub use parser::{Parser, EnterBootloader, Persistency};
+pub use parser::{Parser, EnterBootloader, Persistency, DataField};
 
 mod buttons;
 pub use buttons::Buttons;

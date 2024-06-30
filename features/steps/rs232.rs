@@ -42,13 +42,14 @@ pub fn clear_input_buffer(port: &mut Box<dyn SerialPort>) {
     let mut buffer = [0; 1024]; // Adjust the buffer size if necessary
     while let Ok(bytes_read) = port.read(&mut buffer) {
         if bytes_read == 0 {
-            break; // Exit the loop if no more data is available
+            break;
         }
     }
 }
 
 pub fn send(message: &str, port: &mut Box<dyn SerialPort>) {
     port.write(message.as_bytes()).expect("Failed to write to serial port");
+    port.flush().expect("Failed to flush serial port");
 }
 
 pub fn read(port: &mut Box<dyn SerialPort>) -> Vec<u8>{

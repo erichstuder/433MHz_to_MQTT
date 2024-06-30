@@ -79,8 +79,33 @@ async fn main(_spawner: Spawner) {
             fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]) {
                 self.persistency.store_wifi_ssid(wifi_ssid);
             }
+            fn store_wifi_password(&mut self, wifi_password: &[u8]) {
+                self.persistency.store_wifi_password(wifi_password);
+            }
+            fn store_mqtt_host_ip(&mut self, mqtt_host_ip: &[u8]) {
+                self.persistency.store_mqtt_host_ip(mqtt_host_ip);
+            }
+            fn store_mqtt_broker_username(&mut self, mqtt_broker_username: &[u8]) {
+                self.persistency.store_mqtt_broker_username(mqtt_broker_username);
+            }
+            fn store_mqtt_broker_password(&mut self, mqtt_broker_password: &[u8]) {
+                self.persistency.store_mqtt_broker_password(mqtt_broker_password);
+            }
+
             fn read_wifi_ssid(&mut self) -> &[u8] {
                 self.persistency.read_wifi_ssid()
+            }
+            fn read_wifi_password(&mut self) -> &[u8] {
+                self.persistency.read_wifi_password()
+            }
+            fn read_mqtt_host_ip(&mut self) -> &[u8] {
+                self.persistency.read_mqtt_host_ip()
+            }
+            fn read_mqtt_broker_username(&mut self) -> &[u8] {
+                self.persistency.read_mqtt_broker_username()
+            }
+            fn read_mqtt_broker_password(&mut self) -> &[u8] {
+                self.persistency.read_mqtt_broker_password()
             }
         }
 

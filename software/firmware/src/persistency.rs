@@ -69,8 +69,60 @@ impl Persistency {
         self.store();
     }
 
+    pub fn store_wifi_password(&mut self, wifi_password: &[u8]) {
+        self.data.wifi_password.fill('\0' as u8);
+
+        let copy_len = min(wifi_password.len(), self.data.wifi_password.len());
+        self.data.wifi_password[..copy_len].copy_from_slice(wifi_password[..copy_len].as_ref());
+        self.store();
+    }
+
+    pub fn store_mqtt_host_ip(&mut self, mqtt_host_ip: &[u8]) {
+        self.data.mqtt_host_ip.fill('\0' as u8);
+
+        let copy_len = min(mqtt_host_ip.len(), self.data.mqtt_host_ip.len());
+        self.data.mqtt_host_ip[..copy_len].copy_from_slice(mqtt_host_ip[..copy_len].as_ref());
+        self.store();
+    }
+
+    pub fn store_mqtt_broker_username(&mut self, mqtt_broker_username: &[u8]) {
+        self.data.mqtt_broker_username.fill('\0' as u8);
+
+        let copy_len = min(mqtt_broker_username.len(), self.data.mqtt_broker_username.len());
+        self.data.mqtt_broker_username[..copy_len].copy_from_slice(mqtt_broker_username[..copy_len].as_ref());
+        self.store();
+    }
+
+    pub fn store_mqtt_broker_password(&mut self, mqtt_broker_password: &[u8]) {
+        self.data.mqtt_broker_password.fill('\0' as u8);
+
+        let copy_len = min(mqtt_broker_password.len(), self.data.mqtt_broker_password.len());
+        self.data.mqtt_broker_password[..copy_len].copy_from_slice(mqtt_broker_password[..copy_len].as_ref());
+        self.store();
+    }
+
     pub fn read_wifi_ssid(&mut self) -> &[u8]{
         self.read();
         &self.data.wifi_ssid
+    }
+
+    pub fn read_wifi_password(&mut self) -> &[u8]{
+        self.read();
+        &self.data.wifi_password
+    }
+
+    pub fn read_mqtt_host_ip(&mut self) -> &[u8]{
+        self.read();
+        &self.data.mqtt_host_ip
+    }
+
+    pub fn read_mqtt_broker_username(&mut self) -> &[u8]{
+        self.read();
+        &self.data.mqtt_broker_username
+    }
+
+    pub fn read_mqtt_broker_password(&mut self) -> &[u8]{
+        self.read();
+        &self.data.mqtt_broker_password
     }
 }

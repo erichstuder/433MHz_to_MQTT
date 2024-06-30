@@ -101,27 +101,27 @@ impl Persistency {
         self.store();
     }
 
-    pub fn read_wifi_ssid(&mut self) -> &[u8]{
+    pub fn read_wifi_ssid(&mut self) -> &[u8] {
         self.read();
         &self.data.wifi_ssid
     }
 
-    pub fn read_wifi_password(&mut self) -> &[u8]{
+    pub fn read_wifi_password(&mut self) -> &[u8] {
         self.read();
         &self.data.wifi_password
     }
 
-    pub fn read_mqtt_host_ip(&mut self) -> &[u8]{
+    pub fn read_mqtt_host_ip(&mut self) -> &[u8] {
         self.read();
         &self.data.mqtt_host_ip
     }
 
-    pub fn read_mqtt_broker_username(&mut self) -> &[u8]{
+    pub fn read_mqtt_broker_username(&mut self) -> &[u8] {
         self.read();
         &self.data.mqtt_broker_username
     }
 
-    pub fn read_mqtt_broker_password(&mut self) -> &[u8]{
+    pub fn read_mqtt_broker_password(&mut self) -> &[u8] {
         self.read();
         &self.data.mqtt_broker_password
     }

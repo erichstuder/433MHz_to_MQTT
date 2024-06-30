@@ -77,35 +77,35 @@ async fn main(_spawner: Spawner) {
         }
         impl app::Persistency for PersistencyImpl {
             fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]) {
-                self.persistency.store_wifi_ssid(wifi_ssid);
+                self.persistency.store(wifi_ssid, persistency::Field::WifiSsid);
             }
             fn store_wifi_password(&mut self, wifi_password: &[u8]) {
-                self.persistency.store_wifi_password(wifi_password);
+                self.persistency.store(wifi_password, persistency::Field::WifiPassword);
             }
             fn store_mqtt_host_ip(&mut self, mqtt_host_ip: &[u8]) {
-                self.persistency.store_mqtt_host_ip(mqtt_host_ip);
+                self.persistency.store(mqtt_host_ip, persistency::Field::MqttHostIp);
             }
             fn store_mqtt_broker_username(&mut self, mqtt_broker_username: &[u8]) {
-                self.persistency.store_mqtt_broker_username(mqtt_broker_username);
+                self.persistency.store(mqtt_broker_username, persistency::Field::MqttBrokerUsername);
             }
             fn store_mqtt_broker_password(&mut self, mqtt_broker_password: &[u8]) {
-                self.persistency.store_mqtt_broker_password(mqtt_broker_password);
+                self.persistency.store(mqtt_broker_password, persistency::Field::MqttBrokerPassword);
             }
 
             fn read_wifi_ssid(&mut self) -> &[u8] {
-                self.persistency.read_wifi_ssid()
+                self.persistency.read(persistency::Field::WifiSsid)
             }
             fn read_wifi_password(&mut self) -> &[u8] {
-                self.persistency.read_wifi_password()
+                self.persistency.read(persistency::Field::WifiPassword)
             }
             fn read_mqtt_host_ip(&mut self) -> &[u8] {
-                self.persistency.read_mqtt_host_ip()
+                self.persistency.read(persistency::Field::MqttHostIp)
             }
             fn read_mqtt_broker_username(&mut self) -> &[u8] {
-                self.persistency.read_mqtt_broker_username()
+                self.persistency.read(persistency::Field::MqttBrokerUsername)
             }
             fn read_mqtt_broker_password(&mut self) -> &[u8] {
-                self.persistency.read_mqtt_broker_password()
+                self.persistency.read(persistency::Field::MqttBrokerPassword)
             }
         }
 

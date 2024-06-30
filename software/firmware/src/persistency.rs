@@ -1,4 +1,3 @@
-//use embassy_embedded_hal::flash;
 use embassy_rp::flash::{Flash, Async, ERASE_SIZE};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 use core::cmp::min;
@@ -9,6 +8,14 @@ struct Data {
     mqtt_host_ip: [u8; 32],
     mqtt_broker_username: [u8; 32],
     mqtt_broker_password: [u8; 32],
+}
+
+pub enum Field {
+    WifiSsid,
+    WifiPassword,
+    MqttHostIp,
+    MqttBrokerUsername,
+    MqttBrokerPassword,
 }
 
 // These values must align with the specifications in memory.x.
@@ -23,7 +30,7 @@ pub struct Persistency {
 
 impl Persistency {
     pub fn new(flash: FLASH, dma: DMA_CH0) -> Self {
-        let mut persistency = Self {
+        let persistency = Self {
             flash: Flash::new(flash, dma),
             data: Data {
                 wifi_ssid: [0; 32],
@@ -33,13 +40,25 @@ impl Persistency {
                 mqtt_broker_password: [0; 32],
             },
         };
-        persistency.read();
         persistency
     }
 
-    fn store(&mut self) {
-        let mut data: [u8; DATA_SIZE] = [0x00; DATA_SIZE];
+    pub fn store(&mut self, value: &[u8], field: Field) {
+        fn copy_value_to_field(value: &[u8], target: &mut [u8]) {
+            target.fill('\0' as u8);
+            let copy_len = min(target.len(), value.len());
+            target[..copy_len].copy_from_slice(&value[..copy_len]);
+        }
 
+        match field {
+            Field::WifiSsid => copy_value_to_field(value, &mut self.data.wifi_ssid),
+            Field::WifiPassword => copy_value_to_field(value, &mut self.data.wifi_password),
+            Field::MqttHostIp => copy_value_to_field(value, &mut self.data.mqtt_host_ip),
+            Field::MqttBrokerUsername => copy_value_to_field(value, &mut self.data.mqtt_broker_username),
+            Field::MqttBrokerPassword => copy_value_to_field(value, &mut self.data.mqtt_broker_password),
+        }
+
+        let mut data: [u8; DATA_SIZE] = [0x00; DATA_SIZE];
         data[0..32].copy_from_slice(&self.data.wifi_ssid);
         data[32..64].copy_from_slice(&self.data.wifi_password);
         data[64..96].copy_from_slice(&self.data.mqtt_host_ip);
@@ -50,7 +69,7 @@ impl Persistency {
         self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to write flash memory");
     }
 
-    fn read(&mut self) {
+    pub fn read(&mut self, field: Field) -> &[u8] {
         let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
         self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to read flash memory");
 
@@ -59,70 +78,13 @@ impl Persistency {
         self.data.mqtt_host_ip.copy_from_slice(&data[64..96]);
         self.data.mqtt_broker_username.copy_from_slice(&data[96..128]);
         self.data.mqtt_broker_password.copy_from_slice(&data[128..160]);
-    }
 
-    pub fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]) {
-        self.data.wifi_ssid.fill('\0' as u8);
-
-        let copy_len = min(wifi_ssid.len(), self.data.wifi_ssid.len());
-        self.data.wifi_ssid[..copy_len].copy_from_slice(wifi_ssid[..copy_len].as_ref());
-        self.store();
-    }
-
-    pub fn store_wifi_password(&mut self, wifi_password: &[u8]) {
-        self.data.wifi_password.fill('\0' as u8);
-
-        let copy_len = min(wifi_password.len(), self.data.wifi_password.len());
-        self.data.wifi_password[..copy_len].copy_from_slice(wifi_password[..copy_len].as_ref());
-        self.store();
-    }
-
-    pub fn store_mqtt_host_ip(&mut self, mqtt_host_ip: &[u8]) {
-        self.data.mqtt_host_ip.fill('\0' as u8);
-
-        let copy_len = min(mqtt_host_ip.len(), self.data.mqtt_host_ip.len());
-        self.data.mqtt_host_ip[..copy_len].copy_from_slice(mqtt_host_ip[..copy_len].as_ref());
-        self.store();
-    }
-
-    pub fn store_mqtt_broker_username(&mut self, mqtt_broker_username: &[u8]) {
-        self.data.mqtt_broker_username.fill('\0' as u8);
-
-        let copy_len = min(mqtt_broker_username.len(), self.data.mqtt_broker_username.len());
-        self.data.mqtt_broker_username[..copy_len].copy_from_slice(mqtt_broker_username[..copy_len].as_ref());
-        self.store();
-    }
-
-    pub fn store_mqtt_broker_password(&mut self, mqtt_broker_password: &[u8]) {
-        self.data.mqtt_broker_password.fill('\0' as u8);
-
-        let copy_len = min(mqtt_broker_password.len(), self.data.mqtt_broker_password.len());
-        self.data.mqtt_broker_password[..copy_len].copy_from_slice(mqtt_broker_password[..copy_len].as_ref());
-        self.store();
-    }
-
-    pub fn read_wifi_ssid(&mut self) -> &[u8] {
-        self.read();
-        &self.data.wifi_ssid
-    }
-
-    pub fn read_wifi_password(&mut self) -> &[u8] {
-        self.read();
-        &self.data.wifi_password
-    }
-
-    pub fn read_mqtt_host_ip(&mut self) -> &[u8] {
-        self.read();
-        &self.data.mqtt_host_ip
-    }
-
-    pub fn read_mqtt_broker_username(&mut self) -> &[u8] {
-        self.read();
-        &self.data.mqtt_broker_username
-    }
-
-    pub fn read_mqtt_broker_password(&mut self) -> &[u8] {
-        self.read();
-        &self.data.mqtt_broker_password
+        match field {
+            Field::WifiSsid => &self.data.wifi_ssid,
+            Field::WifiPassword => &self.data.wifi_password,
+            Field::MqttHostIp => &self.data.mqtt_host_ip,
+            Field::MqttBrokerUsername => &self.data.mqtt_broker_username,
+            Field::MqttBrokerPassword => &self.data.mqtt_broker_password,
+        }
     }
 }

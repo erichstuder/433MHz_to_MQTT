@@ -43,6 +43,29 @@ impl Persistency {
         persistency
     }
 
+    fn read_all(&mut self) {
+        let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
+        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to read flash memory");
+
+        self.data.wifi_ssid.copy_from_slice(&data[0..32]);
+        self.data.wifi_password.copy_from_slice(&data[32..64]);
+        self.data.mqtt_host_ip.copy_from_slice(&data[64..96]);
+        self.data.mqtt_broker_username.copy_from_slice(&data[96..128]);
+        self.data.mqtt_broker_password.copy_from_slice(&data[128..160]);
+    }
+
+    pub fn read(&mut self, field: Field) -> &[u8] {
+        self.read_all();
+
+        match field {
+            Field::WifiSsid => &self.data.wifi_ssid,
+            Field::WifiPassword => &self.data.wifi_password,
+            Field::MqttHostIp => &self.data.mqtt_host_ip,
+            Field::MqttBrokerUsername => &self.data.mqtt_broker_username,
+            Field::MqttBrokerPassword => &self.data.mqtt_broker_password,
+        }
+    }
+
     pub fn store(&mut self, value: &[u8], field: Field) {
         fn copy_value_to_field(value: &[u8], target: &mut [u8]) {
             target.fill('\0' as u8);
@@ -50,6 +73,7 @@ impl Persistency {
             target[..copy_len].copy_from_slice(&value[..copy_len]);
         }
 
+        self.read_all();
         match field {
             Field::WifiSsid => copy_value_to_field(value, &mut self.data.wifi_ssid),
             Field::WifiPassword => copy_value_to_field(value, &mut self.data.wifi_password),
@@ -67,24 +91,5 @@ impl Persistency {
 
         self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory");
         self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to write flash memory");
-    }
-
-    pub fn read(&mut self, field: Field) -> &[u8] {
-        let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
-        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to read flash memory");
-
-        self.data.wifi_ssid.copy_from_slice(&data[0..32]);
-        self.data.wifi_password.copy_from_slice(&data[32..64]);
-        self.data.mqtt_host_ip.copy_from_slice(&data[64..96]);
-        self.data.mqtt_broker_username.copy_from_slice(&data[96..128]);
-        self.data.mqtt_broker_password.copy_from_slice(&data[128..160]);
-
-        match field {
-            Field::WifiSsid => &self.data.wifi_ssid,
-            Field::WifiPassword => &self.data.wifi_password,
-            Field::MqttHostIp => &self.data.mqtt_host_ip,
-            Field::MqttBrokerUsername => &self.data.mqtt_broker_username,
-            Field::MqttBrokerPassword => &self.data.mqtt_broker_password,
-        }
     }
 }

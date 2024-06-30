@@ -46,13 +46,13 @@ impl Persistency {
         data[96..128].copy_from_slice(&self.data.mqtt_broker_username);
         data[128..160].copy_from_slice(&self.data.mqtt_broker_password);
 
-        let result1 = self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32);
-        let result3 = self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data);
+        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory");
+        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to write flash memory");
     }
 
     fn read(&mut self) {
         let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
-        let result = self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data);
+        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to read flash memory");
 
         self.data.wifi_ssid.copy_from_slice(&data[0..32]);
         self.data.wifi_password.copy_from_slice(&data[32..64]);

@@ -1,3 +1,6 @@
+//! This module handles the persistency.
+//! It allows to persistently store and read data.
+
 use embassy_rp::flash::{Flash, Async, ERASE_SIZE};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 use core::cmp::min;

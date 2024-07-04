@@ -23,6 +23,7 @@ extensions = [
 
 rust_crates = {
     'firmware': '../software/firmware/src',
+    'app': '../software/app/src',
 }
 rust_doc_dir = 'source/auto_generated'
 rust_rustdocgen = '/root/.cargo/bin/sphinx-rustdocgen'

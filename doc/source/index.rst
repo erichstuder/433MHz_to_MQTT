@@ -1,8 +1,3 @@
-.. 433MHz_to_MQTT documentation master file, created by
-   sphinx-quickstart on Fri May  3 20:02:04 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 Welcome to 433MHz_to_MQTT's documentation!
 ==========================================
 
@@ -26,3 +21,22 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+References
+==========
+
+Repository
+
+.. program-output:: git remote get-url origin
+
+Branch:
+
+.. program-output:: git rev-parse --abbrev-ref HEAD
+
+Hash:
+
+.. program-output:: git rev-parse HEAD
+
+Creation Date:
+
+   |today|

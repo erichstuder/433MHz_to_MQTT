@@ -1,3 +1,6 @@
+//! This is the main file of the firmware.
+//! The pieces are set up, connected together and started.
+
 #![no_std]
 #![no_main]
 

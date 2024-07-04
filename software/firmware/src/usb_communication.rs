@@ -1,3 +1,15 @@
+//! This module handles the communication via USB.
+//! It receives telegrams and passes them to :doc:`../app/parser`.
+//! It receives the answers from there and sends them out.
+//!
+//! .. plantuml::
+//!
+//!    @startuml
+//!
+//!    UsbCommunication -- Parser
+//!
+//!    @enduml
+
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb::{Driver, Instance};
 use embassy_usb::{Builder, Config, UsbDevice};

@@ -4,6 +4,7 @@
 		"1yib.rust-bundle",
 		"hediet.vscode-drawio",
 		"cucumberopen.cucumber-official",
-		"probe-rs.probe-rs-debugger"
+		"probe-rs.probe-rs-debugger",
+		"marus25.cortex-debug"
 	]
 }

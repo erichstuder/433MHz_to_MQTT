@@ -1,3 +1,15 @@
+//! This module parses received messages, forwards them accordingly and returns the answer.
+//! It EnterBootloader and :doc:`../firmware/persistency`.
+//!
+//! .. plantuml::
+//!
+//!    @startuml
+//!
+//!    Parser o-- EnterBootloader
+//!    Parser o-- Persistency
+//!
+//!    @enduml
+
 #[cfg(test)]
 use mockall::automock;
 

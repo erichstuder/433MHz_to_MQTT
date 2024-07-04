@@ -1,3 +1,5 @@
+//! This module parses a button code into a button number.
+
 pub struct Buttons {
     last_value: Option<u32>,
     value_cnt: u8,

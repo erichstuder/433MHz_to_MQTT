@@ -1,3 +1,14 @@
+//! This module receives data from the remote.
+//! Besides some platform specific stuff, it aggregates :doc:`../app/buttons`.
+//!
+//! .. plantuml::
+//!
+//!    @startuml
+//!
+//!    RemoteReceiver o-- Buttons
+//!
+//!    @enduml
+
 use embassy_rp::gpio::Pull;
 use embassy_rp::pio;
 use fixed::traits::ToFixed;

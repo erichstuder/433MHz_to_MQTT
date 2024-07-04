@@ -7,6 +7,24 @@ use embassy_usb::class::cdc_acm::Sender;
 
 use app;
 
+// fn init_parser() -> app::Parser<app::EnterBootloader, app::Persistency> {
+//     struct EnterBootloaderImpl;
+//     impl app::EnterBootloader for EnterBootloaderImpl {
+//         fn call(&mut self) {
+//             embassy_rp::rom_data::reset_to_usb_boot(0, 0);
+//         }
+//     }
+
+//     struct PersistencyImpl;
+//     impl app::Persistency for PersistencyImpl {
+//         fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]) {
+//             flash.store_wifi_ssid(wifi_ssid);
+//         }
+//     }
+
+//     app::Parser::new(EnterBootloaderImpl, PersistencyImpl)
+// }
+
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
 });
@@ -25,6 +43,7 @@ impl From<EndpointError> for Disconnected {
 pub struct UsbCommunication<'a> {
     pub cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
     pub usb: UsbDevice<'a, Driver<'a, USB>>,
+    //parser: app::Parser<app::EnterBootloader, app::Persistency>,
 }
 
 impl<'a> UsbCommunication<'a> {
@@ -65,29 +84,19 @@ impl<'a> UsbCommunication<'a> {
         let cdc_acm_class = CdcAcmClass::new(&mut builder, state, 64);
         let usb = builder.build();
 
+        //let parser = init_parser();
+
         Self {
             cdc_acm_class,
             usb,
+            //parser,
         }
     }
 }
 
-pub async fn echo<'d, T: Instance + 'd>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>) -> Result<(), Disconnected> {
-    struct EnterBootloaderImpl;
-
-    impl app::EnterBootloader for EnterBootloaderImpl {
-        fn call(&mut self) {
-            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-        }
-    }
-
-    let mut parser = app::Parser::new(EnterBootloaderImpl);
-    sender.write_packet(b"echo: ").await?;
-    sender.write_packet(data).await?;
-    sender.write_packet(b"\n").await?;
-
+pub async fn echo<'d, T: Instance + 'd, E: app::EnterBootloader, P: app::Persistency>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>, parser: &mut app::Parser<E, P>) -> Result<(), Disconnected> {
+    //let mut parser = app::Parser::new(EnterBootloaderImpl, PersistencyImpl);
     let answer = parser.parse_message(data);
     sender.write_packet(answer).await?;
-    sender.write_packet(b"\n\n").await?;
     Ok(())
 }

@@ -62,9 +62,7 @@ def build_container(container_tag, work_dir):
 
 def run_container(container_tag, work_dir):
 
-    current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss');
-
-    docker_volume_dir = '/usr/433MHz_to_MQTT'
+    current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss')
 
     if arguments.keep_open:
         commands = 'bash'
@@ -93,15 +91,17 @@ def run_container(container_tag, work_dir):
     else:
         return
 
+    project_root_dir = work_dir + '/..'
+
     return subprocess.run(['docker',
         'run',
         '--rm',
         '--privileged',
         '--name', 'firmware_' + current_time,
         '--volume', '/media/'+os.environ.get('USER')+':/media/user/',
-        '--volume', work_dir + '/..:' + docker_volume_dir,
+        '--volume', project_root_dir + ':' + project_root_dir,
         '--volume', '/dev/bus/usb:/dev/bus/usb',
-        '--workdir', docker_volume_dir,
+        '--workdir', project_root_dir,
         '-i' + ('' if arguments.pseudo_tty_disable else 't'),
         container_tag,
         'bash', '-c', commands

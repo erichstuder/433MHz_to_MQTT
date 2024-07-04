@@ -56,6 +56,8 @@ def run_container(container_tag, work_dir):
 
     docker_volume_dir = '/usr/project'
 
+    prebuild_command = 'git config --global --add safe.directory ' + docker_volume_dir
+
     work_dir_commands = 'set -e \n cd doc \n'
 
     if arguments.keep_open:
@@ -63,10 +65,10 @@ def run_container(container_tag, work_dir):
     elif arguments.sphinx_autobuild:
         commands = work_dir_commands + 'sphinx-autobuild '+ ('' if arguments.verbose else '-q') +' -a --port 8000 --host 0.0.0.0 '
         commands += '--watch ../software/firmware/src --watch ../software/app/src --re-ignore auto_generated source _build/html '
-        commands += '--pre-build "git config --global --add safe.directory ' + docker_volume_dir + '"'
+        commands += '--pre-build "' + prebuild_command + '"'
         print(commands)
     elif arguments.build:
-        commands = work_dir_commands + 'make html'
+        commands = work_dir_commands + prebuild_command + ' \n make html'
     else:
         return
 

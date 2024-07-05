@@ -12,8 +12,8 @@ Relevant parts of files and generated documentation is of course part of the doc
    doc
    development_environment
    file_structure
-   auto_generated/firmware/main
-   auto_generated/app/lib
+   software
+   auto_generated/features/gherkin
 
 Indices and tables
 ==================

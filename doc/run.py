@@ -64,7 +64,8 @@ def run_container(container_tag, work_dir):
         commands = 'bash'
     elif arguments.sphinx_autobuild:
         commands = work_dir_commands + 'sphinx-autobuild '+ ('' if arguments.verbose else '-q') +' -a --port 8000 --host 0.0.0.0 '
-        commands += '--watch ../software/firmware/src --watch ../software/app/src --re-ignore auto_generated source _build/html '
+        commands += '--watch ../software/firmware/src --watch ../software/app/src --watch ../features '
+        commands += '--re-ignore auto_generated source _build/html '
         commands += '--pre-build "' + prebuild_command + '"'
         print(commands)
     elif arguments.build:

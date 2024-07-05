@@ -6,6 +6,9 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
+import subprocess
+from sphinx.application import Sphinx
+
 project = '433MHz_to_MQTT'
 copyright = '2024, erichstuder'
 author = 'erichstuder'
@@ -35,6 +38,13 @@ exclude_patterns = []
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 drawio_no_sandbox = True
+
+
+def run_gherkindoc(app: Sphinx):
+    subprocess.run(["sphinx-gherkindoc", "../features", "source/auto_generated/features"], check=True)
+
+def setup(app):
+    app.connect("builder-inited", run_gherkindoc)

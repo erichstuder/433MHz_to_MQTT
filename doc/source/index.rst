@@ -14,6 +14,7 @@ Relevant parts of files and generated documentation is of course part of the doc
    file_structure
    auto_generated/firmware/main
    auto_generated/app/lib
+   auto_generated/features/gherkin
 
 Indices and tables
 ==================

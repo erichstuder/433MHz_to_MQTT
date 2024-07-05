@@ -9,9 +9,9 @@
 /* .gherkin-feature-content {
     color: green;
 } */
-.gherkin-feature-description {
+/* .gherkin-feature-description {
     color: red;
-}
+} */
 
 .gherkin-scenario-keyword, .gherkin-scenario-outline-keyword {
     color: darkviolet;

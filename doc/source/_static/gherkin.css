@@ -1,0 +1,39 @@
+.gherkin-step-keyword {
+    font-weight: bold;
+    color: darkviolet;
+}
+
+.gherkin-feature-keyword, .gherkin-background-keyword {
+    color: darkviolet;
+}
+/* .gherkin-feature-content {
+    color: green;
+} */
+.gherkin-feature-description {
+    color: red;
+}
+
+.gherkin-scenario-keyword, .gherkin-scenario-outline-keyword {
+    color: darkviolet;
+}
+/* .gherkin-scenario-content, .gherkin-scenario-outline-content {
+    color: violet;
+} */
+.gherkin-scenario-description, .gherkin-scenario-outline-description {
+    color: purple;
+}
+
+.gherkin-examples-keyword {
+    font-weight: bold;
+    color: darkviolet;
+}
+.gherkin-examples-content {
+    color: goldenrod;
+}
+.gherkin-examples {
+    color: purple;
+}
+
+.gherkin-tag-keyword {
+    color: salmon;
+}

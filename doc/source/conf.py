@@ -32,6 +32,7 @@ rust_doc_dir = 'source/auto_generated'
 rust_rustdocgen = '/root/.cargo/bin/sphinx-rustdocgen'
 
 templates_path = ['_templates']
+
 exclude_patterns = []
 
 
@@ -39,6 +40,11 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = 'sphinx_rtd_theme'
+html_static_path = ['_static']
+
+html_css_files = [
+    'gherkin.css',
+]
 
 drawio_no_sandbox = True
 

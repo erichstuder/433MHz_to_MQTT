@@ -10,22 +10,37 @@ System Scope and Context
 
    * - Element
      - Description
+
    * - 433MHz_to_MQTT
-     - - Our system
-       - Transmitts the data from 433MHz Sender to an MQTT Broker (e.g. a key-press)
+     - This is the system we develop.
+
+       It Transmitts the data from a 433MHz Sender to
+
+       an MQTT Broker (e.g. a key-press).
+
    * - 433MHz Receiver
      - - Receiver for the 433MHz signal.
-       - It is powered by the RPi Pico W
+       - It is powered by the RPi Pico W.
        - This component is bought as a module.
+
    * - RPi Pico W
-     - The Raspberry Pi Pico W receives the data from the 433MHz Receiver and forwards it to the MQTT Broker.
+     - The Raspberry Pi Pico W receives the data from the 433MHz Receiver
+
+       and forwards it to the MQTT Broker.
+
    * - 433MHz Sender
      - A remote device that sends a 433MHz signal (e.g. a remote control).
+
    * - MQTT Broker in the LAN
-     - The MQTT Broker is located in a network and receives the data from the 433MHz_to_MQTT system for further processing
+     - The MQTT Broker is located in a network and receives the data from the
+
+       433MHz_to_MQTT system for further processing
+
        (e.g. in a home assistant system).
+
    * - 5V Power Supply
      - The system is powered with 5V via the USB-micro port of the RPi Pico W.
+
    * - Admin
      - - Aministration is done via the USB-micro port of the RPi Pico W.
        - This interface allows to flash the RPi Pico W and to configure the system.

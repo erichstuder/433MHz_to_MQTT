@@ -22,6 +22,7 @@ extensions = [
     'sphinx_toolbox.collapse',
     'sphinxcontrib.programoutput',
     'sphinxcontrib_rust',
+    'sphinx_needs',
 ]
 
 rust_crates = {
@@ -47,6 +48,46 @@ html_css_files = [
 ]
 
 drawio_no_sandbox = True
+
+needs_types = [
+    {
+        "directive": "usecase",
+        "title": "Use Case",
+        "prefix": "UC_",
+        "color": "#BFD8D2",
+        "style": "usecase",
+    },
+    {
+        "directive": "actor",
+        "title": "Actor",
+        "prefix": "A_",
+        "color": "#BFD8D2",
+        "style": "actor",
+    },
+]
+
+needs_extra_links = [
+    {
+        "option": "includes",
+        "incoming": "is included by",
+        "outgoing": "<<include>>",
+        "copy": False,
+        "style": "#000000",
+        "style_part": "#000000",
+        "style_start": ".",
+        "style_end": "->"
+    },
+    {
+        "option": "association",
+        "incoming": "is associated with",
+        "outgoing": "",
+        "copy": False,
+        "style": "#000000",
+        "style_part": "#000000",
+        "style_start": "-",
+        "style_end": "-"
+    },
+]
 
 
 def run_gherkindoc(app: Sphinx):

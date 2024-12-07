@@ -13,6 +13,7 @@ Relevant parts of files and generated documentation is of course part of the doc
    development_environment
    file_structure
    software
+   use_cases
    auto_generated/features/gherkin
 
 Indices and tables

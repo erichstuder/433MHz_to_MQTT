@@ -2,6 +2,8 @@ Use Cases
 =========
 
 .. needflow::
+   :filter: type == 'actor' or type == 'usecase'
+   :link_types: includes, association
    :show_link_names:
    :config: lefttoright
 

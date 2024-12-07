@@ -14,7 +14,7 @@ Relevant parts of files and generated documentation is of course part of the doc
    file_structure
    software
    use_cases
-   auto_generated/features/gherkin
+   requirements
 
 Indices and tables
 ==================

@@ -8,6 +8,7 @@
 
 import subprocess
 from sphinx.application import Sphinx
+import os
 
 project = '433MHz_to_MQTT'
 copyright = '2024, erichstuder'
@@ -51,6 +52,13 @@ drawio_no_sandbox = True
 
 needs_types = [
     {
+        "directive": "feature",
+        "title": "Feature",
+        "prefix": "F_",
+        "color": "#BFD8D2",
+        "style": "node",
+    },
+    {
         "directive": "usecase",
         "title": "Use Case",
         "prefix": "UC_",
@@ -89,9 +97,24 @@ needs_extra_links = [
     },
 ]
 
-
 def run_gherkindoc(app: Sphinx):
-    subprocess.run(["sphinx-gherkindoc", "../features", "source/auto_generated/features"], check=True)
+    features_dir = os.path.join(app.srcdir, 'auto_generated/features')
+    subprocess.run(['sphinx-gherkindoc', '--raw-descriptions', '--doc-project', 'DOC_PROJECT', '../features', features_dir], check=True)
+    subprocess.run(['rm', os.path.join(features_dir, 'gherkin.rst')], check=True) # Prevent unused sphinx file warning.
+
+    # Remove the '%' character from the beginning of lines in files in the source/auto_generated/features directory
+    # This is a workaround for now as the parser removes all whitespaces from the beginning of lines which leads to invalid requirements.
+    for root, _, files in os.walk(features_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+            with open(file_path, 'w') as f:
+                for line in lines:
+                    if line.startswith('%'):
+                        f.write(line[1:])  # Remove the '%' character
+                    else:
+                        f.write(line)
 
 def setup(app):
     app.connect("builder-inited", run_gherkindoc)

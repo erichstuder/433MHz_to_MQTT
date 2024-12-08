@@ -9,8 +9,9 @@ Relevant parts of files and generated documentation is of course part of the doc
    :maxdepth: 2
    :caption: Contents:
 
-   doc
+   system_scope_and_context
    development_environment
+   development_process
    file_structure
    software
    use_cases

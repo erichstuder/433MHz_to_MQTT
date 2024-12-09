@@ -18,4 +18,4 @@ rustflags = [
 
 [build]
 target = "thumbv6m-none-eabi"
-target-dir = "tmp"
+target-dir = "build"

@@ -35,3 +35,6 @@ COPY ./firmware/Cargo.toml .
 RUN cargo fetch
 COPY ./app/Cargo.toml .
 RUN cargo fetch
+
+RUN echo "umask 0000" >> /root/.bashrc
+ENV BASH_ENV=/root/.bashrc

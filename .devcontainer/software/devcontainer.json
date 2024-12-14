@@ -1,0 +1,17 @@
+{
+    "name": "software",
+    "dockerComposeFile": "${localWorkspaceFolder}/software/docker-compose.yml",
+    "service": "main",
+    "workspaceFolder": "/usr/project",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.shell.linux": "/bin/bash"
+            },
+            "extensions": [
+                "rust-lang.rust-analyzer"
+            ]
+        }
+    },
+    "remoteUser": "root"
+}

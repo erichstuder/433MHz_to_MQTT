@@ -1,4 +1,4 @@
-FROM python:latest
+FROM python:3.13.1
 # Note: Can't use official sphinx image because drawio can't be installed from apt which causes problems.
 
 WORKDIR /usr/drawio
@@ -14,3 +14,6 @@ RUN apt update && apt install -y xvfb tree
 RUN python3 -m pip install sphinx sphinx-autobuild sphinxcontrib-drawio sphinxcontrib-plantuml \
                            sphinx-toolbox sphinxcontrib-programoutput pyserial sphinxcontrib-rust==0.3.0 \
                            sphinx-needs==4.1.0 sphinx-gherkindoc setuptools pillow==11.0.0
+
+RUN echo "umask 0000" >> /root/.bashrc
+ENV BASH_ENV=/root/.bashrc

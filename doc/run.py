@@ -30,6 +30,6 @@ if __name__ == "__main__":
         commands += '--watch ../software/firmware/src --watch ../software/app/src --watch ../features '
         commands += '--re-ignore auto_generated source _build/html'
     else:
-        command = None
+        commands = None
 
     ex.run(commands)

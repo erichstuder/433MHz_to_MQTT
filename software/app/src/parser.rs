@@ -19,7 +19,7 @@ pub trait EnterBootloader {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum DataField {
+pub enum DataField { //TODO: rename DataField to something more meaningful.
     WifiSsid,
     WifiPassword,
     MqttHostIp,

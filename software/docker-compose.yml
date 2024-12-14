@@ -1,0 +1,10 @@
+services:
+  main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/usr/project
+    working_dir: /usr/project
+    stdin_open: true
+    tty: true

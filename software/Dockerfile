@@ -1,4 +1,4 @@
-FROM rust:latest
+FROM rust:1.83.0
 
 # Add target toolchain
 RUN rustup self update && \

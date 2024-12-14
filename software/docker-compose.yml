@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/usr/project
+      - /media/${USER}:/media/user/
     working_dir: /usr/project
     stdin_open: true
     tty: true
+    privileged: true

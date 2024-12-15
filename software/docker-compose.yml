@@ -10,3 +10,4 @@ services:
     stdin_open: true
     tty: true
     privileged: true
+    stop_grace_period: 0s

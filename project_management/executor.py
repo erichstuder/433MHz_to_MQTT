@@ -43,14 +43,17 @@ class Executor:
         docker_args = ['bash', '-c', 'set -e \n ' + commands]
         yml_file_path = self.work_dir + '/docker-compose.yml'
         project = 'project_management'
+        service_name = 'main'
 
-        subprocess.run(['docker-compose', '-f', yml_file_path, '-p', project, 'up', '--build', '--detach'], check=True)
+        try:
+            subprocess.run(['docker-compose', '-f', yml_file_path, '-p', project, 'up', '--build', '--detach'], check=True)
 
-        exec_command = ['docker-compose', '-f', yml_file_path, '-p', project, 'exec']
-        if self.arguments.pseudo_tty_off:
-            exec_command.append('-T')
-        exec_command.append('main')
-        exec_command.extend(docker_args)
-        subprocess.run(exec_command, check=True)
+            exec_command = ['docker-compose', '-f', yml_file_path, '-p', project, 'exec']
+            if self.arguments.pseudo_tty_off:
+                exec_command.append('-T')
+            exec_command.append(service_name)
+            exec_command.extend(docker_args)
+            subprocess.run(exec_command, check=True)
 
-        subprocess.run(["docker-compose", '-f', yml_file_path, '-p', project, "down"], check=True)
+        finally:
+            subprocess.run(["docker-compose", '-f', yml_file_path, '-p', project, "down"], check=True)

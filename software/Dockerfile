@@ -1,23 +1,23 @@
 FROM rust:1.83.0
 
-# Add target toolchain
-RUN rustup self update && \
-    rustup update stable && \
-	rustup target add thumbv6m-none-eabi
+RUN apt update && apt install -y \
+    libudev-dev=252.31-1~deb12u1
 
-# Install tools
-# TODO: Can't these tools be moved to Cargo.toml? Why not?
-RUN apt update && \
-    apt install -y libudev-dev && \
-    cargo install elf2uf2-rs@2.0.0 && \
-    cargo install flip-link@0.1.2
+RUN rustup target add thumbv6m-none-eabi
 
-# Install picotool (see: https://github.com/raspberrypi/picotool)
+RUN cargo install \
+    elf2uf2-rs@2.1.1 \
+    flip-link@0.1.9
+
+# picotool (see: https://github.com/raspberrypi/picotool)
 WORKDIR /usr
-RUN git clone --depth 1 --branch 1.5.1 https://github.com/raspberrypi/pico-sdk.git && \
-    git clone --depth 1 --branch 1.1.2 https://github.com/raspberrypi/picotool.git && \
-    apt update && \
-    apt install -y build-essential pkg-config libusb-1.0-0-dev cmake && \
+RUN apt update && apt install -y \
+    build-essential=12.9 \
+    pkg-config=1.8.1-1 \
+    libusb-1.0-0-dev=2:1.0.26-1 \
+    cmake=3.25.1-1
+RUN git clone --depth 1 --branch 2.1.0 https://github.com/raspberrypi/pico-sdk.git && \
+    git clone --depth 1 --branch 2.1.0 https://github.com/raspberrypi/picotool.git && \
     cd picotool && \
     mkdir build && \
     cmake -E chdir build cmake -DPICO_SDK_PATH="../../pico-sdk" .. && \
@@ -25,10 +25,11 @@ RUN git clone --depth 1 --branch 1.5.1 https://github.com/raspberrypi/pico-sdk.g
     cmake --install build && \
     cp udev/99-picotool.rules /lib/udev/rules.d/
 
-# Pre-fetch dependencies with a dummy project. This makes the later build much faster.
+# Pre-fetch dependencies. This makes the later build much faster.
+# - Add a temporary lib to fulfill dependency in Cargo.toml.
 WORKDIR /usr/dependencies_fetch_project
-# add dummy lib to fulfill dependency in Cargo.toml
 RUN cargo init --lib app
+# - Use a dummy project to fetch dependencies.
 WORKDIR /usr/dependencies_fetch_project/dummy
 RUN cargo init
 COPY ./firmware/Cargo.toml .

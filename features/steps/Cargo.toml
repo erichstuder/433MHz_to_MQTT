@@ -1,19 +1,15 @@
 [package]
-name = "example"
-version = "0.1.0"
+name = "feature_tests"
+version = "1.0.0" # This is a project-internal package, so the version doesn't matter and will be 1.0.0 forever.
 edition = "2021"
 
 [dependencies]
-utf8parse = "0.2.2"
-
-[dev-dependencies]
-cucumber = "0.21.0"
-futures = "0.3"
-tokio = { version = "1.38.0", features = ["full"] }
-serialport = "4.3.0"
-udev = "0.8.0"
+cucumber = "0.21.1"
+tokio = { version = "1.42.0", features = ["full"] }
+serialport = "4.6.1"
+udev = "0.9.1"
 
 [[test]]
-name = "main" # this should be the same as the filename of your test target
+name = "feature_tests"
 path = "main.rs"
 harness = false  # allows Cucumber to print output instead of libtest

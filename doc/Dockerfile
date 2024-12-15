@@ -21,6 +21,10 @@ RUN apt update && apt install -y \
     tree=2.1.0-1
 
 # Note: sphinxcontrib-rust==0.6.1 works with maximum sphinx==7.4.7
+# see also:
+#   https://gitlab.com/munir0b0t/sphinxcontrib-rust/-/issues/2
+#   https://gitlab.com/munir0b0t/sphinxcontrib-rust/-/issues/3
+#   https://gitlab.com/munir0b0t/sphinxcontrib-rust/-/issues/4
 RUN python3 -m pip install --verbose \
     sphinx==7.4.7 \
     sphinx-autobuild==2024.10.3 \

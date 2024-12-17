@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        USER: ${USER}
     volumes:
       - .:/usr/project
       - /media/${USER}:/media/user/
@@ -11,3 +13,4 @@ services:
     tty: true
     privileged: true
     stop_grace_period: 0s
+    user: "${USER}"

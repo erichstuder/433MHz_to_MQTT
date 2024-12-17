@@ -3,6 +3,10 @@ FROM rust:1.83.0
 RUN apt update && apt install -y \
     libudev-dev=252.31-1~deb12u1
 
+ARG USER
+RUN useradd -ms /bin/bash $USER
+USER $USER
+
 RUN rustup target add thumbv6m-none-eabi
 
 RUN cargo install \
@@ -20,6 +24,3 @@ COPY ./firmware/Cargo.toml .
 RUN cargo fetch
 COPY ./app/Cargo.toml .
 RUN cargo fetch
-
-RUN echo "umask 0000" >> /root/.bashrc
-ENV BASH_ENV=/root/.bashrc

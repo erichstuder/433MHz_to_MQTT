@@ -4,7 +4,7 @@ RUN apt update && apt install -y \
     libudev-dev=252.31-1~deb12u1
 
 ARG USER
-RUN useradd -ms /bin/bash $USER
+RUN useradd -m $USER
 USER $USER
 
 RUN rustup target add thumbv6m-none-eabi

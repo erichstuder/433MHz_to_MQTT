@@ -15,10 +15,10 @@ RUN cargo install \
 
 # Pre-fetch dependencies. This makes the later build much faster.
 # - Add a temporary lib to fulfill dependency in Cargo.toml.
-WORKDIR /usr/dependencies_fetch_project
+WORKDIR /home/$USER/dependencies_fetch_project
 RUN cargo init --lib app
 # - Use a dummy project to fetch dependencies.
-WORKDIR /usr/dependencies_fetch_project/dummy
+WORKDIR /home/$USER/dependencies_fetch_project/dummy
 RUN cargo init
 COPY ./firmware/Cargo.toml .
 RUN cargo fetch

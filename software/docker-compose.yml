@@ -6,9 +6,9 @@ services:
       args:
         USER: ${USER}
     volumes:
-      - .:/usr/project
+      - .:/home/${USER}/project
       - /media/${USER}:/media/user/
-    working_dir: /usr/project
+    working_dir: /home/${USER}/project
     stdin_open: true
     tty: true
     privileged: true

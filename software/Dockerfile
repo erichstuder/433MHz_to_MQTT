@@ -7,8 +7,6 @@ ARG USER
 RUN useradd -m $USER
 USER $USER
 
-RUN id -u && id -g
-
 RUN rustup target add thumbv6m-none-eabi
 
 RUN cargo install \

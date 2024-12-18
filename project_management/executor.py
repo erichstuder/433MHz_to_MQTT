@@ -1,8 +1,8 @@
 import argparse
 import subprocess
-import datetime
 import sys
 import pathlib
+import os
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 import common
@@ -45,15 +45,18 @@ class Executor:
         project = 'project_management'
         service_name = 'main'
 
+        env = os.environ.copy()
+        env['UID'] = str(os.getuid())
+
         try:
-            subprocess.run(['docker-compose', '-f', yml_file_path, '-p', project, 'up', '--build', '--detach'], check=True)
+            subprocess.run(['docker-compose', '-f', yml_file_path, '-p', project, 'up', '--build', '--detach'], check=True, env=env)
 
             exec_command = ['docker-compose', '-f', yml_file_path, '-p', project, 'exec']
             if self.arguments.pseudo_tty_off:
                 exec_command.append('-T')
             exec_command.append(service_name)
             exec_command.extend(docker_args)
-            subprocess.run(exec_command, check=True)
+            subprocess.run(exec_command, check=True, env=env)
 
         finally:
-            subprocess.run(["docker-compose", '-f', yml_file_path, '-p', project, "down"], check=True)
+            subprocess.run(["docker-compose", '-f', yml_file_path, '-p', project, "down"], check=True, env=env)

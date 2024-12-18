@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         USER: ${USER}
+        UID: ${UID}
     volumes:
       - .:/home/${USER}/project
       - /media/${USER}:/media/user/
@@ -13,4 +14,3 @@ services:
     tty: true
     privileged: true
     stop_grace_period: 0s
-    user: "${USER}"

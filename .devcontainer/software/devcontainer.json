@@ -2,16 +2,17 @@
     "name": "software",
     "dockerComposeFile": "${localWorkspaceFolder}/software/docker-compose.yml",
     "service": "main",
-    "workspaceFolder": "/usr/project",
+    "workspaceFolder": "/home/${localEnv:USER}/project",
     "customizations": {
         "vscode": {
             "settings": {
                 "terminal.integrated.shell.linux": "/bin/bash"
             },
             "extensions": [
-                "rust-lang.rust-analyzer"
+                "rust-lang.rust-analyzer",
+                "fill-labs.dependi",
+                "tamasfe.even-better-toml"
             ]
         }
-    },
-    "remoteUser": "root"
+    }
 }

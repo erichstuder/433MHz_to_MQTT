@@ -1,40 +1,32 @@
 FROM rust:1.83.0
 
-# Add target toolchain
-RUN rustup self update && \
-    rustup update stable && \
-	rustup target add thumbv6m-none-eabi
+RUN apt update && apt install -y \
+    libudev-dev=252.31-1~deb12u1
 
-# Install tools
-# TODO: Can't these tools be moved to Cargo.toml? Why not?
-RUN apt update && \
-    apt install -y libudev-dev && \
-    cargo install elf2uf2-rs@2.0.0 && \
-    cargo install flip-link@0.1.2
+ARG USER
+ARG UID
+RUN useradd -m -u ${UID:-2222} $USER
+USER ${USER}
 
-# Install picotool (see: https://github.com/raspberrypi/picotool)
-WORKDIR /usr
-RUN git clone --depth 1 --branch 1.5.1 https://github.com/raspberrypi/pico-sdk.git && \
-    git clone --depth 1 --branch 1.1.2 https://github.com/raspberrypi/picotool.git && \
-    apt update && \
-    apt install -y build-essential pkg-config libusb-1.0-0-dev cmake && \
-    cd picotool && \
-    mkdir build && \
-    cmake -E chdir build cmake -DPICO_SDK_PATH="../../pico-sdk" .. && \
-    cmake --build build && \
-    cmake --install build && \
-    cp udev/99-picotool.rules /lib/udev/rules.d/
+RUN rustup target add thumbv6m-none-eabi
 
-# Pre-fetch dependencies with a dummy project. This makes the later build much faster.
-WORKDIR /usr/dependencies_fetch_project
-# add dummy lib to fulfill dependency in Cargo.toml
+RUN cargo install \
+    elf2uf2-rs@2.1.1 \
+    flip-link@0.1.9
+
+# Pre-fetch dependencies. This makes the later build much faster.
+# - Add a temporary lib to fulfill dependency in Cargo.toml.
+WORKDIR /home/$USER/dependencies_fetch_project
 RUN cargo init --lib app
-WORKDIR /usr/dependencies_fetch_project/dummy
+# - Use a dummy project to fetch dependencies.
+WORKDIR /home/$USER/dependencies_fetch_project/dummy
 RUN cargo init
 COPY ./firmware/Cargo.toml .
 RUN cargo fetch
 COPY ./app/Cargo.toml .
 RUN cargo fetch
-
-RUN echo "umask 0000" >> /root/.bashrc
-ENV BASH_ENV=/root/.bashrc
+# - For example when used as devcontainer, the UID is set to a default value (see above).
+#   I wasn't able to pass the UID of the local user to the container in this case.
+#   So when using the devcontainer, the local user is then used and can't access the fetched dependencies.
+#   To solve this, the fetched dependencies are made readable by anyone.
+RUN chmod -R a+r /usr/local/cargo/registry/src

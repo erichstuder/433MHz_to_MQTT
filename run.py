@@ -5,7 +5,7 @@ from project_management.dispatcher import run_dispatcher
 if __name__ == "__main__":
     scripts = {
         'features': 'features/run.py',
-        'software': 'software/run.py',
+        'software': '.devcontainer/software/run.py',
         'doc': 'doc/run.py',
     }
 

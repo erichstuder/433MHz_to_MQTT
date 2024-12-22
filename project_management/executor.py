@@ -3,6 +3,7 @@ import subprocess
 import sys
 import pathlib
 import os
+import json
 
 sys.path.append(str(pathlib.Path(__file__).parent))
 import common
@@ -40,23 +41,23 @@ class Executor:
         if self.arguments.keep_open:
             commands = 'bash'
 
-        docker_args = ['bash', '-c', 'set -e \n ' + commands]
-        yml_file_path = self.work_dir + '/docker-compose.yml'
-        project = 'project_management'
-        service_name = 'main'
-
-        env = os.environ.copy()
-        env['UID'] = str(os.getuid())
+        workspace_folder = os.path.join(self.work_dir, '..', '..')
+        devcontainer_path = os.path.join(self.work_dir, 'devcontainer.json')
 
         try:
-            subprocess.run(['docker-compose', '-f', yml_file_path, '-p', project, 'up', '--build', '--detach'], check=True, env=env)
+            result = subprocess.run(['devcontainer', 'up', '--workspace-folder', workspace_folder, '--config', devcontainer_path],
+                                    check=True, capture_output=True)
+            container_info = json.loads(result.stdout)
+            containerId = container_info['containerId']
 
-            exec_command = ['docker-compose', '-f', yml_file_path, '-p', project, 'exec']
-            if self.arguments.pseudo_tty_off:
-                exec_command.append('-T')
-            exec_command.append(service_name)
-            exec_command.extend(docker_args)
-            subprocess.run(exec_command, check=True, env=env)
+            print('container id: ' + containerId)
+            print(result.stdout)
+
+            exec_command = ['devcontainer', 'exec', '--workspace-folder', workspace_folder, '--config', devcontainer_path]
+            exec_command.extend(['bash', '-c', 'set -e && ' + commands])
+            subprocess.run(exec_command, check=True)
 
         finally:
-            subprocess.run(["docker-compose", '-f', yml_file_path, '-p', project, "down"], check=True, env=env)
+            # Stopping the container is a workaround:
+            # The RPI Pico volume is not mounted correctly if the container is already running.
+            subprocess.run(['docker', 'stop', containerId], check=True)

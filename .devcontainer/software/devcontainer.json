@@ -1,17 +1,25 @@
 {
     "name": "software",
-    "dockerComposeFile": "${localWorkspaceFolder}/software/docker-compose.yml",
-    "service": "main",
+    "privileged": true,
+    "build": {
+        "dockerfile": "../../software/Dockerfile",
+        "context": "../../software",
+        "args": {
+            "USER": "${localEnv:USER}"
+        }
+    },
     "workspaceFolder": "/home/${localEnv:USER}/project",
+    "mounts": [
+        "source=${localWorkspaceFolder}/software,target=/home/${localEnv:USER}/project,type=bind,consistency=consistent",
+        "source=/media/${localEnv:USER},target=/media/${localEnv:USER},type=bind,consistency=consistent"
+    ],
     "customizations": {
         "vscode": {
-            "settings": {
-                "terminal.integrated.shell.linux": "/bin/bash"
-            },
             "extensions": [
                 "rust-lang.rust-analyzer",
                 "fill-labs.dependi",
-                "tamasfe.even-better-toml"
+                "tamasfe.even-better-toml",
+                "ms-azuretools.vscode-docker"
             ]
         }
     }

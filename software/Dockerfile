@@ -5,7 +5,7 @@ RUN apt update && apt install -y \
 
 ARG USER
 ARG UID
-RUN useradd -m -u ${UID:-2222} $USER
+RUN useradd -m -s /bin/bash -u ${UID:-2222} $USER
 USER ${USER}
 
 RUN rustup target add thumbv6m-none-eabi

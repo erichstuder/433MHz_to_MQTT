@@ -5,7 +5,7 @@ import pathlib
 import serial
 import time
 
-sys.path.append(str(pathlib.Path(__file__).parent.parent / 'project_management'))
+sys.path.append(str(pathlib.Path(__file__).parent.parent.parent / 'project_management'))
 from executor import Executor # type: ignore
 
 

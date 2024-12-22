@@ -12,3 +12,4 @@ services:
     command: sh -c "git config --global --add safe.directory /usr/project && /bin/bash"
     stdin_open: true
     tty: true
+    stop_grace_period: 0s

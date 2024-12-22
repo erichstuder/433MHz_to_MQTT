@@ -24,7 +24,7 @@ if __name__ == "__main__":
     ex = Executor(additional_arguments, description='Execute unit-tests')
 
     if ex.arguments.build:
-        commands = 'make html'
+        commands = 'make html SPHINXOPTS="--fail-on-warning"'
     elif ex.arguments.autobuild:
         commands = 'sphinx-autobuild '+ ('' if ex.arguments.verbose else '-q') +' --port 8000 --host 0.0.0.0 '
         commands += '--watch ../software/firmware/src --watch ../software/app/src --watch ../features '

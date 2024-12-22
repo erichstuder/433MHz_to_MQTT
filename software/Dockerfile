@@ -1,6 +1,6 @@
 FROM rust:1.83.0
 
-RUN apt update && apt install -y \
+RUN apt-get update && apt-get install -y \
     libudev-dev=252.31-1~deb12u1
 
 ARG USER

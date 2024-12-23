@@ -12,6 +12,7 @@
 use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::{gpio, pio};
 use embassy_rp::pio::PioPin;
+use pio_proc::pio_asm;
 use fixed::traits::ToFixed;
 
 use app::buttons::Buttons;
@@ -27,7 +28,7 @@ impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         pin.set_pull(gpio::Pull::None);
         sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
-        let prg = pio_proc::pio_asm!(
+        let prg = pio_asm!(
             "startup:"
                 "set x 31", // 31 is maximum and sufficient
             "assert_initial_low_pulse:",

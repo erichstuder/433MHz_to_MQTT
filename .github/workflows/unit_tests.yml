@@ -1,13 +1,17 @@
 on:
-  push:
-  pull_request:
-  workflow_dispatch:
+    push:
+    pull_request:
+    workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+    build:
+        runs-on: ubuntu-latest
+        steps:
+        -   name: setup
+            run: |
+                sudo apt-get update
+                sudo apt-get install -y docker-compose
 
-    steps:
-      - uses: actions/checkout@v4
+        -   uses: actions/checkout@v4
 
-      - run: python3 run.py --software --test --verbose --pseudo_tty_disable
+        -   run: ./run.py --software --test --verbose --pseudo_tty_off

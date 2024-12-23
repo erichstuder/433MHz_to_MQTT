@@ -1,72 +1,40 @@
-# You must run this script without sudo. To run docker without sudo do the following:
-# sudo groupadd docker
-# sudo gpasswd -a $USER docker
+#!/usr/bin/env python3
 
-import argparse
-import os
-import subprocess
-import datetime
+import sys
+import pathlib
 import serial
 import time
-import pathlib
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='Execute common software tasks')
-
-    parser.add_argument('--build', '-b',
-                        action='store_true',
-                        help='Build the software.')
-
-    parser.add_argument('--test', '-t',
-                        action='store_true',
-                        help='Test the software.')
-
-    parser.add_argument('--upload', '-u',
-                        action='store_true',
-                        help='Upload the software to RPI after rebuild.')
-
-    parser.add_argument('--pseudo_tty_disable', '-p',
-                        action='store_true',
-                        help='Disable colorfull output.')
-
-    parser.add_argument('--keep_open', '-k',
-                        action='store_true',
-                        help='Enter the command line of the container.')
-
-    parser.add_argument('--verbose', '-v',
-                        action='store_true',
-                        help='Verbose output.')
-
-    global arguments
-    arguments = parser.parse_args()
+sys.path.append(str(pathlib.Path(__file__).parent.parent / 'project_management'))
+from executor import Executor # type: ignore
 
 
-def build_container(container_tag, work_dir):
-    args = ['docker', 'build',
-        '--tag', container_tag,
-        '--build-arg', 'USER=' + os.environ.get('USER'),
-        '--build-arg', 'USER_ID=' + str(os.geteuid()),
-        '--build-arg', 'GROUP_ID=' + str(os.getegid())]
+if __name__ == "__main__":
+    additional_arguments = [
+        {
+            'flag': '-b',
+            'name': '--build',
+            'help': 'Build the software.'
+        },
+        {
+            'flag': '-t',
+            'name': '--test',
+            'help': 'Test the software.'
+        },
+        {
+            'flag': '-u',
+            'name': '--upload',
+            'help': 'Upload the software to RPI after rebuild.'
+        }
+    ]
 
-    if not arguments.verbose:
-        args.append('--quiet')
-        stdout = subprocess.DEVNULL
-    else:
-        stdout = None
+    ex = Executor(additional_arguments, description='Execute feature tests')
 
-    args.append(work_dir)
-
-    print('    building container... please wait')
-    return subprocess.run(args, stdout=stdout)
-
-
-def run_container(container_tag, work_dir):
-
-    current_time = datetime.datetime.now().strftime('%Hh_%Mm_%Ss')
-
-    if arguments.keep_open:
-        commands = 'bash'
-    elif arguments.upload:
+    if ex.arguments.build:
+        commands = 'cd firmware && cargo build'
+    elif ex.arguments.test:
+        commands = 'cd app && cargo test'
+    elif ex.arguments.upload:
         # TODO: Maybe we could send the device into bootloader mode directly from inside the container?
         import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.
         udev = pyudev.Context()
@@ -80,56 +48,11 @@ def run_container(container_tag, work_dir):
                         my_serial.write("enter bootloader".encode())
                         my_serial.close()
                         time.sleep(4) #wait for the device to enter bootloader mode
-                        if arguments.verbose:
+                        if ex.arguments.verbose:
                             print("Info: Device was sent into bootloader mode.")
 
-        commands = 'set -e\n cd software/firmware \n cargo run'
-    elif arguments.build:
-        commands = 'set -e\n cd software/firmware \n cargo build'
-    elif arguments.test:
-        commands = 'set -e\n cd software/app \n cargo test'
+        commands = 'cd firmware && cargo run'
     else:
-        return
+        commands = None
 
-    project_root_dir = work_dir + '/..'
-
-    return subprocess.run(['docker',
-        'run',
-        '--rm',
-        '--privileged',
-        '--name', 'firmware_' + current_time,
-        '--volume', '/media/'+os.environ.get('USER')+':/media/user/',
-        '--volume', project_root_dir + ':' + project_root_dir,
-        '--volume', '/dev/bus/usb:/dev/bus/usb',
-        '--workdir', project_root_dir,
-        '-i' + ('' if arguments.pseudo_tty_disable else 't'),
-        container_tag,
-        'bash', '-c', commands
-    ])
-
-
-def assert_result(result):
-    if result is not None and result.returncode != 0:
-        if arguments.verbose:
-            print(result)
-        exit(result.returncode)
-
-
-def main():
-    parse_arguments()
-
-    work_dir = str(pathlib.Path(__file__).parent.resolve())
-    container_tag = work_dir[1:].lower().replace('/_', '/')
-
-    if arguments.verbose:
-        print('Container Tag: ' + container_tag)
-
-    result = build_container(container_tag, work_dir)
-    assert_result(result)
-
-    result = run_container(container_tag, work_dir)
-    assert_result(result)
-
-
-if __name__ == "__main__":
-    main()
+    ex.run(commands)

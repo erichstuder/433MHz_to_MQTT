@@ -5,6 +5,7 @@
 		"hediet.vscode-drawio",
 		"cucumberopen.cucumber-official",
 		"probe-rs.probe-rs-debugger",
-		"marus25.cortex-debug"
+		"marus25.cortex-debug",
+        "ms-vscode-remote.remote-containers"
 	]
 }

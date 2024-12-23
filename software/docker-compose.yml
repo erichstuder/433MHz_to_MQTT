@@ -1,0 +1,16 @@
+services:
+  main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        USER: ${USER}
+        UID: ${UID}
+    volumes:
+      - .:/home/${USER}/project
+      - /media/${USER}:/media/user/
+    working_dir: /home/${USER}/project
+    stdin_open: true
+    tty: true
+    privileged: true
+    stop_grace_period: 0s

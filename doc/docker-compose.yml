@@ -1,0 +1,14 @@
+services:
+  main:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/usr/project
+    working_dir: /usr/project/doc
+    ports:
+      - "8000:8000"
+    # prevent vs code warning by marking repositories as safe and open a shell
+    command: sh -c "git config --global --add safe.directory /usr/project && /bin/bash"
+    stdin_open: true
+    tty: true

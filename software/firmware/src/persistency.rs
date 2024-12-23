@@ -13,7 +13,7 @@ struct Data {
     mqtt_broker_password: [u8; 32],
 }
 
-pub enum Field {
+pub enum ValueId {
     WifiSsid,
     WifiPassword,
     MqttHostIp,
@@ -57,19 +57,19 @@ impl Persistency {
         self.data.mqtt_broker_password.copy_from_slice(&data[128..160]);
     }
 
-    pub fn read(&mut self, field: Field) -> &[u8] {
+    pub fn read(&mut self, field: ValueId) -> &[u8] {
         self.read_all();
 
         match field {
-            Field::WifiSsid => &self.data.wifi_ssid,
-            Field::WifiPassword => &self.data.wifi_password,
-            Field::MqttHostIp => &self.data.mqtt_host_ip,
-            Field::MqttBrokerUsername => &self.data.mqtt_broker_username,
-            Field::MqttBrokerPassword => &self.data.mqtt_broker_password,
+            ValueId::WifiSsid => &self.data.wifi_ssid,
+            ValueId::WifiPassword => &self.data.wifi_password,
+            ValueId::MqttHostIp => &self.data.mqtt_host_ip,
+            ValueId::MqttBrokerUsername => &self.data.mqtt_broker_username,
+            ValueId::MqttBrokerPassword => &self.data.mqtt_broker_password,
         }
     }
 
-    pub fn store(&mut self, value: &[u8], field: Field) {
+    pub fn store(&mut self, value: &[u8], field: ValueId) {
         fn copy_value_to_field(value: &[u8], target: &mut [u8]) {
             target.fill('\0' as u8);
             let copy_len = min(target.len(), value.len());
@@ -78,11 +78,11 @@ impl Persistency {
 
         self.read_all();
         match field {
-            Field::WifiSsid => copy_value_to_field(value, &mut self.data.wifi_ssid),
-            Field::WifiPassword => copy_value_to_field(value, &mut self.data.wifi_password),
-            Field::MqttHostIp => copy_value_to_field(value, &mut self.data.mqtt_host_ip),
-            Field::MqttBrokerUsername => copy_value_to_field(value, &mut self.data.mqtt_broker_username),
-            Field::MqttBrokerPassword => copy_value_to_field(value, &mut self.data.mqtt_broker_password),
+            ValueId::WifiSsid => copy_value_to_field(value, &mut self.data.wifi_ssid),
+            ValueId::WifiPassword => copy_value_to_field(value, &mut self.data.wifi_password),
+            ValueId::MqttHostIp => copy_value_to_field(value, &mut self.data.mqtt_host_ip),
+            ValueId::MqttBrokerUsername => copy_value_to_field(value, &mut self.data.mqtt_broker_username),
+            ValueId::MqttBrokerPassword => copy_value_to_field(value, &mut self.data.mqtt_broker_password),
         }
 
         let mut data: [u8; DATA_SIZE] = [0x00; DATA_SIZE];

@@ -17,7 +17,7 @@ use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
 use embassy_usb::driver::EndpointError;
 use embassy_usb::class::cdc_acm::Sender;
 
-use app;
+use app::parser::{self, Parser};
 
 // fn init_parser() -> app::Parser<app::EnterBootloader, app::Persistency> {
 //     struct EnterBootloaderImpl;
@@ -106,7 +106,7 @@ impl<'a> UsbCommunication<'a> {
     }
 }
 
-pub async fn echo<'d, T: Instance + 'd, E: app::EnterBootloader, P: app::Persistency>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>, parser: &mut app::Parser<E, P>) -> Result<(), Disconnected> {
+pub async fn echo<'d, T: Instance + 'd, E: parser::EnterBootloader, P: parser::Persistency>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>, parser: &mut Parser<E, P>) -> Result<(), Disconnected> {
     //let mut parser = app::Parser::new(EnterBootloaderImpl, PersistencyImpl);
     let answer = parser.parse_message(data);
     sender.write_packet(answer).await?;

@@ -15,7 +15,7 @@ use fixed::traits::ToFixed;
 use embassy_rp::pio::{Common, Config, FifoJoin, Instance, PioPin, ShiftDirection, StateMachine};
 use {defmt_rtt as _, panic_probe as _};
 
-use app::Buttons;
+use app::buttons::Buttons;
 
 pub struct RemoteReceiver<'d, T: Instance, const SM: usize> {
     sm: StateMachine<'d, T, SM>,

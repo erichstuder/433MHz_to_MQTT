@@ -4,12 +4,8 @@
 #![no_std]
 #![no_main]
 
-mod usb_communication;
-mod remote_receiver;
-mod persistency;
-
 use {defmt_rtt as _, panic_probe as _};
-use embassy_executor::Spawner;
+use embassy_executor::{Spawner, main};
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::PIO0;
 use embassy_rp::pio::{Pio, InterruptHandler};
@@ -21,23 +17,29 @@ use embassy_usb::class::cdc_acm::Sender;
 use embassy_rp::peripherals::{USB, FLASH, DMA_CH0};
 use embassy_rp::usb::Driver;
 
-use app::ValueId;
-use usb_communication::UsbCommunication;
+mod persistency;
+mod remote_receiver;
+mod usb_communication;
+
+use app::buttons::Buttons;
+use app::parser::{self, Parser};
 use persistency::Persistency;
+use remote_receiver::RemoteReceiver;
+use usb_communication::UsbCommunication;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
 });
 
-#[embassy_executor::main]
+#[main]
 async fn main(_spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
 
     let Pio { common: mut pio_common, sm0, .. } = Pio::new(peripherals.PIO0, Irqs);
 
-    let buttons = app::Buttons::new();
+    let buttons = Buttons::new();
 
-    let mut remote_receiver = remote_receiver::RemoteReceiver::new(
+    let mut remote_receiver = RemoteReceiver::new(
         &mut pio_common,
         sm0,
         peripherals.PIN_28,
@@ -66,7 +68,7 @@ async fn main(_spawner: Spawner) {
         let mut buf = [0; 64];
 
         struct EnterBootloaderImpl;
-        impl app::EnterBootloader for EnterBootloaderImpl {
+        impl parser::EnterBootloader for EnterBootloaderImpl {
             fn call(&mut self) {
                 embassy_rp::rom_data::reset_to_usb_boot(0, 0);
             }
@@ -82,30 +84,30 @@ async fn main(_spawner: Spawner) {
                 }
             }
         }
-        impl app::Persistency for PersistencyImpl {
-            fn store(&mut self, value: &[u8], value_id: ValueId) {
+        impl parser::Persistency for PersistencyImpl {
+            fn store(&mut self, value: &[u8], value_id: parser::ValueId) {
                 match value_id {
-                    ValueId::WifiSsid => self.persistency.store(value, persistency::ValueId::WifiSsid),
-                    ValueId::WifiPassword => self.persistency.store(value, persistency::ValueId::WifiPassword),
-                    ValueId::MqttHostIp => self.persistency.store(value, persistency::ValueId::MqttHostIp),
-                    ValueId::MqttBrokerUsername => self.persistency.store(value, persistency::ValueId::MqttBrokerUsername),
-                    ValueId::MqttBrokerPassword => self.persistency.store(value, persistency::ValueId::MqttBrokerPassword),
+                    parser::ValueId::WifiSsid => self.persistency.store(value, persistency::ValueId::WifiSsid),
+                    parser::ValueId::WifiPassword => self.persistency.store(value, persistency::ValueId::WifiPassword),
+                    parser::ValueId::MqttHostIp => self.persistency.store(value, persistency::ValueId::MqttHostIp),
+                    parser::ValueId::MqttBrokerUsername => self.persistency.store(value, persistency::ValueId::MqttBrokerUsername),
+                    parser::ValueId::MqttBrokerPassword => self.persistency.store(value, persistency::ValueId::MqttBrokerPassword),
                 }
             }
 
-            fn read(&mut self, value_id: ValueId) -> &[u8] {
+            fn read(&mut self, value_id: parser::ValueId) -> &[u8] {
                 match value_id {
-                    ValueId::WifiSsid => self.persistency.read(persistency::ValueId::WifiSsid),
-                    ValueId::WifiPassword => self.persistency.read(persistency::ValueId::WifiPassword),
-                    ValueId::MqttHostIp => self.persistency.read(persistency::ValueId::MqttHostIp),
-                    ValueId::MqttBrokerUsername => self.persistency.read(persistency::ValueId::MqttBrokerUsername),
-                    ValueId::MqttBrokerPassword => self.persistency.read(persistency::ValueId::MqttBrokerPassword),
+                    parser::ValueId::WifiSsid => self.persistency.read(persistency::ValueId::WifiSsid),
+                    parser::ValueId::WifiPassword => self.persistency.read(persistency::ValueId::WifiPassword),
+                    parser::ValueId::MqttHostIp => self.persistency.read(persistency::ValueId::MqttHostIp),
+                    parser::ValueId::MqttBrokerUsername => self.persistency.read(persistency::ValueId::MqttBrokerUsername),
+                    parser::ValueId::MqttBrokerPassword => self.persistency.read(persistency::ValueId::MqttBrokerPassword),
                 }
             }
         }
 
         let persistency = PersistencyImpl::new(peripherals.FLASH, peripherals.DMA_CH0);
-        let mut parser = app::Parser::new(EnterBootloaderImpl, persistency);
+        let mut parser = Parser::new(EnterBootloaderImpl, persistency);
 
         loop {
             receiver.wait_connection().await;

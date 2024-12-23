@@ -6,7 +6,8 @@
     "customizations": {
         "vscode": {
             "settings": {
-                "terminal.integrated.shell.linux": "/bin/bash"
+                "terminal.integrated.shell.linux": "/bin/bash",
+                "rust-analyzer.inlayHints.typeHints.enable": false
             },
             "extensions": [
                 "rust-lang.rust-analyzer",

@@ -15,6 +15,7 @@ use embassy_rp::usb;
 use embassy_usb::UsbDevice;
 use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
 use embassy_usb::driver::EndpointError as UsbEndpointError;
+use static_cell::StaticCell;
 
 use app::parser::{self, Parser};
 
@@ -51,14 +52,14 @@ impl From<UsbEndpointError> for Disconnected {
     }
 }
 
-pub struct UsbCommunication<'a> {
-    pub cdc_acm_class: CdcAcmClass<'a, usb::Driver<'a, USB>>,
-    pub usb: UsbDevice<'a, usb::Driver<'a, USB>>,
+pub struct UsbCommunication {
+    pub cdc_acm_class: CdcAcmClass<'static, usb::Driver<'static, USB>>,
+    pub usb: UsbDevice<'static, usb::Driver<'static, USB>>,
     //parser: app::Parser<app::EnterBootloader, app::Persistency>,
 }
 
-impl<'a> UsbCommunication<'a> {
-    pub fn new(usb: USB, state: &'a mut cdc_acm::State<'a>) -> Self{
+impl UsbCommunication {
+    pub fn new(usb: USB) -> Self{
         let mut config = embassy_usb::Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
         config.manufacturer = Some("github.com/erichstuder");
         config.product = Some("433MHz_to_MQTT");
@@ -92,7 +93,10 @@ impl<'a> UsbCommunication<'a> {
             unsafe { &mut CONTROL_BUF },
         );
 
-        let cdc_acm_class = CdcAcmClass::new(&mut builder, state, 64);
+        static CDC_ACM_STATE: StaticCell<cdc_acm::State> = StaticCell::new();
+        let cdc_acm_state = CDC_ACM_STATE.init(cdc_acm::State::new());
+        let cdc_acm_class = CdcAcmClass::new(&mut builder, cdc_acm_state, 64);
+
         let usb = builder.build();
 
         //let parser = init_parser();

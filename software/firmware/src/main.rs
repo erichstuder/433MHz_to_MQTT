@@ -44,8 +44,7 @@ async fn main(_spawner: Spawner) {
         buttons,
     );
 
-    let mut cdc_acm_state = cdc_acm::State::new();
-    let usb_communication = UsbCommunication::new(peripherals.USB, &mut cdc_acm_state);
+    let usb_communication = UsbCommunication::new(peripherals.USB);
 
     let mut usb = usb_communication.usb;
     let (sender, mut receiver) = usb_communication.cdc_acm_class.split();

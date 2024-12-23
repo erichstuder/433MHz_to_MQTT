@@ -9,23 +9,22 @@
 //!
 //!    @enduml
 
-use embassy_rp::gpio::Pull;
-use embassy_rp::pio;
-use fixed::traits::ToFixed;
-use embassy_rp::pio::{Common, Config, FifoJoin, Instance, PioPin, ShiftDirection, StateMachine};
 use {defmt_rtt as _, panic_probe as _};
+use embassy_rp::{gpio, pio};
+use embassy_rp::pio::PioPin;
+use fixed::traits::ToFixed;
 
 use app::buttons::Buttons;
 
-pub struct RemoteReceiver<'d, T: Instance, const SM: usize> {
-    sm: StateMachine<'d, T, SM>,
+pub struct RemoteReceiver<'d, T: pio::Instance, const SM: usize> {
+    sm: pio::StateMachine<'d, T, SM>,
     buttons: Buttons,
 }
 
-impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
-    pub fn new(pio: &mut Common<'d, T>, mut sm: StateMachine<'d, T, SM>, pin: impl PioPin, buttons: Buttons) -> Self {
+impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
+    pub fn new(pio: &mut pio::Common<'d, T>, mut sm: pio::StateMachine<'d, T, SM>, pin: impl PioPin, buttons: Buttons) -> Self {
         let mut pin = pio.make_pio_pin(pin);
-        pin.set_pull(Pull::None);
+        pin.set_pull(gpio::Pull::None);
         sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
         let prg = pio_proc::pio_asm!(
@@ -45,11 +44,11 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
             "push",
         );
 
-        let mut cfg = Config::default();
+        let mut cfg = pio::Config::default();
         cfg.set_in_pins(&[&pin]);
         cfg.set_jmp_pin(&pin);
-        cfg.fifo_join = FifoJoin::RxOnly;
-        cfg.shift_in.direction = ShiftDirection::Left;
+        cfg.fifo_join = pio::FifoJoin::RxOnly;
+        cfg.shift_in.direction = pio::ShiftDirection::Left;
         cfg.clock_divider = 12500.to_fixed(); // 125MHz / 12500 = 10kHz
         cfg.use_program(&pio.load_program(&prg.program), &[]);
         sm.set_config(&cfg);

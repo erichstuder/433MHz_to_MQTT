@@ -7,15 +7,13 @@
 use {defmt_rtt as _, panic_probe as _};
 use embassy_executor::{Spawner, main};
 use embassy_rp::bind_interrupts;
-use embassy_rp::peripherals::PIO0;
-use embassy_rp::pio::{Pio, InterruptHandler};
+use embassy_rp::pio::{self, Pio};
+use embassy_rp::peripherals::{USB, FLASH, DMA_CH0, PIO0};
+use embassy_rp::usb;
 use embassy_usb::class::cdc_acm;
 use embassy_futures::join::join;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_usb::class::cdc_acm::Sender;
-use embassy_rp::peripherals::{USB, FLASH, DMA_CH0};
-use embassy_rp::usb::Driver;
 
 mod persistency;
 mod remote_receiver;
@@ -28,7 +26,7 @@ use remote_receiver::RemoteReceiver;
 use usb_communication::UsbCommunication;
 
 bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
+    PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
 });
 
 #[main]
@@ -51,7 +49,7 @@ async fn main(_spawner: Spawner) {
 
     let mut usb = usb_communication.usb;
     let (sender, mut receiver) = usb_communication.cdc_acm_class.split();
-    let sender: Mutex<CriticalSectionRawMutex, Sender<Driver<USB>>> = Mutex::new(sender);
+    let sender: Mutex<CriticalSectionRawMutex, cdc_acm::Sender<usb::Driver<USB>>> = Mutex::new(sender);
 
     let receiver_fut = async {
         loop {
@@ -87,9 +85,9 @@ async fn main(_spawner: Spawner) {
         impl parser::Persistency for PersistencyImpl {
             fn store(&mut self, value: &[u8], value_id: parser::ValueId) {
                 match value_id {
-                    parser::ValueId::WifiSsid => self.persistency.store(value, persistency::ValueId::WifiSsid),
-                    parser::ValueId::WifiPassword => self.persistency.store(value, persistency::ValueId::WifiPassword),
-                    parser::ValueId::MqttHostIp => self.persistency.store(value, persistency::ValueId::MqttHostIp),
+                    parser::ValueId::WifiSsid           => self.persistency.store(value, persistency::ValueId::WifiSsid),
+                    parser::ValueId::WifiPassword       => self.persistency.store(value, persistency::ValueId::WifiPassword),
+                    parser::ValueId::MqttHostIp         => self.persistency.store(value, persistency::ValueId::MqttHostIp),
                     parser::ValueId::MqttBrokerUsername => self.persistency.store(value, persistency::ValueId::MqttBrokerUsername),
                     parser::ValueId::MqttBrokerPassword => self.persistency.store(value, persistency::ValueId::MqttBrokerPassword),
                 }
@@ -97,9 +95,9 @@ async fn main(_spawner: Spawner) {
 
             fn read(&mut self, value_id: parser::ValueId) -> &[u8] {
                 match value_id {
-                    parser::ValueId::WifiSsid => self.persistency.read(persistency::ValueId::WifiSsid),
-                    parser::ValueId::WifiPassword => self.persistency.read(persistency::ValueId::WifiPassword),
-                    parser::ValueId::MqttHostIp => self.persistency.read(persistency::ValueId::MqttHostIp),
+                    parser::ValueId::WifiSsid           => self.persistency.read(persistency::ValueId::WifiSsid),
+                    parser::ValueId::WifiPassword       => self.persistency.read(persistency::ValueId::WifiPassword),
+                    parser::ValueId::MqttHostIp         => self.persistency.read(persistency::ValueId::MqttHostIp),
                     parser::ValueId::MqttBrokerUsername => self.persistency.read(persistency::ValueId::MqttBrokerUsername),
                     parser::ValueId::MqttBrokerPassword => self.persistency.read(persistency::ValueId::MqttBrokerPassword),
                 }

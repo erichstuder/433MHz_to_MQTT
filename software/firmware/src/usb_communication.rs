@@ -11,11 +11,10 @@
 //!    @enduml
 
 use embassy_rp::peripherals::USB;
-use embassy_rp::usb::{Driver, Instance};
-use embassy_usb::{Builder, Config, UsbDevice};
-use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
-use embassy_usb::driver::EndpointError;
-use embassy_usb::class::cdc_acm::Sender;
+use embassy_rp::usb;
+use embassy_usb::UsbDevice;
+use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
+use embassy_usb::driver::EndpointError as UsbEndpointError;
 
 use app::parser::{self, Parser};
 
@@ -43,24 +42,24 @@ embassy_rp::bind_interrupts!(struct Irqs {
 
 pub struct Disconnected {}
 
-impl From<EndpointError> for Disconnected {
-    fn from(val: EndpointError) -> Self {
+impl From<UsbEndpointError> for Disconnected {
+    fn from(val: UsbEndpointError) -> Self {
         match val {
-            EndpointError::BufferOverflow => panic!("Buffer overflow"),
-            EndpointError::Disabled => Disconnected {},
+            UsbEndpointError::BufferOverflow => panic!("Buffer overflow"),
+            UsbEndpointError::Disabled => Disconnected {},
         }
     }
 }
 
 pub struct UsbCommunication<'a> {
-    pub cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
-    pub usb: UsbDevice<'a, Driver<'a, USB>>,
+    pub cdc_acm_class: CdcAcmClass<'a, usb::Driver<'a, USB>>,
+    pub usb: UsbDevice<'a, usb::Driver<'a, USB>>,
     //parser: app::Parser<app::EnterBootloader, app::Persistency>,
 }
 
 impl<'a> UsbCommunication<'a> {
-    pub fn new(usb: USB, state: &'a mut State<'a>) -> Self{
-        let mut config = Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
+    pub fn new(usb: USB, state: &'a mut cdc_acm::State<'a>) -> Self{
+        let mut config = embassy_usb::Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
         config.manufacturer = Some("github.com/erichstuder");
         config.product = Some("433MHz_to_MQTT");
         config.serial_number = Some("12345678");
@@ -80,8 +79,8 @@ impl<'a> UsbCommunication<'a> {
         static mut CONTROL_BUF: [u8; 64] = [0; 64];
 
         #[allow(unknown_lints)] //TODO: all this allow stuff should be removed
-        let mut builder = Builder::new(
-            Driver::new(usb, Irqs),
+        let mut builder = embassy_usb::Builder::new(
+            usb::Driver::new(usb, Irqs),
             config,
             #[allow(static_mut_refs)]
             unsafe{ &mut DEVICE_DESCRIPTOR_BUF },
@@ -106,7 +105,12 @@ impl<'a> UsbCommunication<'a> {
     }
 }
 
-pub async fn echo<'d, T: Instance + 'd, E: parser::EnterBootloader, P: parser::Persistency>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>, parser: &mut Parser<E, P>) -> Result<(), Disconnected> {
+pub async fn echo<'d, I: usb::Instance + 'd, E: parser::EnterBootloader, P: parser::Persistency>(
+    data: &[u8],
+    sender: &mut cdc_acm::Sender<'d, usb::Driver<'d, I>>,
+    parser: &mut Parser<E, P>
+) -> Result<(), Disconnected>
+{
     //let mut parser = app::Parser::new(EnterBootloaderImpl, PersistencyImpl);
     let answer = parser.parse_message(data);
     sender.write_packet(answer).await?;

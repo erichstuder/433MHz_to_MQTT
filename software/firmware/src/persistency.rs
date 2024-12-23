@@ -1,7 +1,7 @@
 //! This module handles the persistency.
 //! It allows to persistently store and read data.
 
-use embassy_rp::flash::{Flash, Async, ERASE_SIZE};
+use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 use core::cmp::min;
 
@@ -23,11 +23,11 @@ pub enum ValueId {
 
 // These values must align with the specifications in memory.x.
 const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
-const DATA_SIZE : usize = ERASE_SIZE; // must be a multiple of ERASE_SIZE.
-const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - ERASE_SIZE; // put data at the end of flash memory.
+const DATA_SIZE : usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
+const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - flash::ERASE_SIZE; // put data at the end of flash memory.
 
 pub struct Persistency {
-    flash: Flash<'static, FLASH, Async, FLASH_SIZE>,
+    flash: Flash<'static, FLASH, flash::Async, FLASH_SIZE>,
     data: Data,
 }
 

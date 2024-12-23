@@ -166,11 +166,11 @@ mod tests {
     #[test]
     fn test_store_command() {
         let commands = vec![
-            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       DataField::WifiSsid),
-            (b"wifi_password".as_ref(),        b"12345".as_ref(),         DataField::WifiPassword),
-            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), DataField::MqttHostIp),
-            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     DataField::MqttBrokerUsername),
-            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     DataField::MqttBrokerPassword),
+            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       ValueId::WifiSsid),
+            (b"wifi_password".as_ref(),        b"12345".as_ref(),         ValueId::WifiPassword),
+            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), ValueId::MqttHostIp),
+            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     ValueId::MqttBrokerUsername),
+            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     ValueId::MqttBrokerPassword),
         ];
 
         for (command, value, field) in commands {

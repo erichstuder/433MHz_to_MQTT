@@ -27,10 +27,11 @@ extensions = [
 ]
 
 rust_crates = {
-    'firmware': '../software/firmware/src',
-    'app': '../software/app/src',
+    'firmware': '../software/firmware',
+    'app': '../software/app',
 }
 rust_doc_dir = 'source/auto_generated'
+rust_visibility = 'pvt'
 rust_rustdocgen = '/root/.cargo/bin/sphinx-rustdocgen'
 
 templates_path = ['_templates']

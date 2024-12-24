@@ -25,7 +25,7 @@ RUN . $HOME/.cargo/env  && python3 -m pip install --verbose \
     sphinx-toolbox==3.8.1 \
     sphinxcontrib-programoutput==0.18 \
     pyserial==3.5 \
-    sphinxcontrib-rust==0.6.2 \
+    sphinxcontrib-rust==0.6.3 \
     sphinx-needs==4.1.0 \
     sphinx-gherkindoc==3.6.4 \
     setuptools==75.6.0 \

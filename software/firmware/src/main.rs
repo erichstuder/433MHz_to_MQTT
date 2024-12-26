@@ -29,6 +29,9 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
 });
 
+type UsbSenderMutex = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
+type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
+
 #[main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
@@ -36,7 +39,7 @@ async fn main(spawner: Spawner) {
 
     let (usb_sender_mutexed, usb_receiver) = {
         let (usb_sender, usb_receiver) = usb_communication.cdc_acm_class.split();
-        static USB_SENDER: StaticCell<Mutex<CriticalSectionRawMutex, cdc_acm::Sender<usb::Driver<USB>>>> = StaticCell::new();
+        static USB_SENDER: StaticCell<UsbSenderMutex> = StaticCell::new();
         (USB_SENDER.init(Mutex::new(usb_sender)), usb_receiver)
     };
 
@@ -47,7 +50,7 @@ async fn main(spawner: Spawner) {
 }
 
 #[task]
-async fn handle_buttons(pio: PIO0, receiver_pin: PIN_28, usb_sender: &'static Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>) {
+async fn handle_buttons(pio: PIO0, receiver_pin: PIN_28, usb_sender: &'static UsbSenderMutex) {
     let Pio { common: mut pio_common, sm0: pio_sm0, .. } = Pio::new(pio, Irqs);
 
     let buttons = Buttons::new();
@@ -70,7 +73,7 @@ async fn handle_buttons(pio: PIO0, receiver_pin: PIN_28, usb_sender: &'static Mu
 }
 
 #[task]
-async fn echo(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: cdc_acm::Receiver<'static, usb::Driver<'static, USB>>, usb_sender: &'static Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>) {
+async fn echo(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutex) {
     let mut buf = [0; 64];
 
     struct EnterBootloaderImpl;

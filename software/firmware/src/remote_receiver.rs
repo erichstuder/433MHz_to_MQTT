@@ -23,10 +23,10 @@ pub struct RemoteReceiver<'d, T: pio::Instance, const SM: usize> {
 }
 
 impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
-    pub fn new(pio: &mut pio::Common<'d, T>, mut sm: pio::StateMachine<'d, T, SM>, pin: impl PioPin, buttons: Buttons) -> Self {
-        let mut pin = pio.make_pio_pin(pin);
+    pub fn new(pio: &mut pio::Common<'d, T>, mut pio_sm: pio::StateMachine<'d, T, SM>, receiver_pin: impl PioPin, buttons: Buttons) -> Self {
+        let mut pin = pio.make_pio_pin(receiver_pin);
         pin.set_pull(gpio::Pull::None);
-        sm.set_pin_dirs(pio::Direction::In, &[&pin]);
+        pio_sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
         let prg = pio_asm!(
             "startup:"
@@ -52,9 +52,9 @@ impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         cfg.shift_in.direction = pio::ShiftDirection::Left;
         cfg.clock_divider = 12500.to_fixed(); // 125MHz / 12500 = 10kHz
         cfg.use_program(&pio.load_program(&prg.program), &[]);
-        sm.set_config(&cfg);
-        sm.set_enable(true);
-        Self { sm, buttons }
+        pio_sm.set_config(&cfg);
+        pio_sm.set_enable(true);
+        Self { sm: pio_sm, buttons }
     }
 
     pub async fn read(&mut self) -> &[u8]{

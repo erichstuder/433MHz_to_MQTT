@@ -36,11 +36,11 @@ impl Persistency {
         let persistency = Self {
             flash: Flash::new(flash, dma),
             value: Value {
-                wifi_ssid: [0; 32],
-                wifi_password: [0; 32],
-                mqtt_host_ip: [0; 32],
-                mqtt_broker_username: [0; 32],
-                mqtt_broker_password: [0; 32],
+                wifi_ssid: [0u8; 32],
+                wifi_password: [0u8; 32],
+                mqtt_host_ip: [0u8; 32],
+                mqtt_broker_username: [0u8; 32],
+                mqtt_broker_password: [0u8; 32],
             },
         };
         persistency

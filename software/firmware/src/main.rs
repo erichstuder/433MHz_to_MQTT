@@ -5,15 +5,16 @@
 #![no_main]
 
 use {defmt_rtt as _, panic_probe as _};
-use embassy_executor::{Spawner, main};
+use embassy_executor::{Spawner, main, task};
 use embassy_rp::bind_interrupts;
 use embassy_rp::pio::{self, Pio};
-use embassy_rp::peripherals::{USB, FLASH, DMA_CH0, PIO0};
+use embassy_rp::peripherals::{USB, FLASH, DMA_CH0, PIO0, PIN_28};
 use embassy_rp::usb;
+use embassy_usb::UsbDevice;
 use embassy_usb::class::cdc_acm;
-use embassy_futures::join::join;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use static_cell::StaticCell;
 
 mod persistency;
 mod remote_receiver;
@@ -29,37 +30,19 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
 });
 
+
+
 #[main]
-async fn main(_spawner: Spawner) {
+async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
 
-    let Pio { common: mut pio_common, sm0, .. } = Pio::new(peripherals.PIO0, Irqs);
-
-    let buttons = Buttons::new();
-
-    let mut remote_receiver = RemoteReceiver::new(
-        &mut pio_common,
-        sm0,
-        peripherals.PIN_28,
-        buttons,
-    );
-
     let usb_communication = UsbCommunication::new(peripherals.USB);
+    spawner.spawn(run_usb(usb_communication.usb)).unwrap();
 
-    let mut usb = usb_communication.usb;
-    let (sender, mut receiver) = usb_communication.cdc_acm_class.split();
-    let sender: Mutex<CriticalSectionRawMutex, cdc_acm::Sender<usb::Driver<USB>>> = Mutex::new(sender);
-
-    let receiver_fut = async {
-        loop {
-            let pressed_button = remote_receiver.read().await;
-            {
-                let mut sender = sender.lock().await;
-                let _ = sender.write_packet(pressed_button).await;
-                let _ = sender.write_packet(b"\n").await;
-            }
-        }
-    };
+    let (usb_sender, mut receiver) = usb_communication.cdc_acm_class.split();
+    static USB_SENDER: StaticCell<Mutex<CriticalSectionRawMutex, cdc_acm::Sender<usb::Driver<USB>>>> = StaticCell::new();
+    let usb_sender = USB_SENDER.init(Mutex::new(usb_sender));
+    spawner.spawn(handle_buttons(peripherals.PIO0, peripherals.PIN_28, usb_sender)).unwrap();
 
     let echo_fut = async {
         let mut buf = [0; 64];
@@ -117,10 +100,39 @@ async fn main(_spawner: Spawner) {
             };
             let data = &buf[..n];
             {
-                let mut sender = sender.lock().await;
+                let mut sender = usb_sender.lock().await;
                 let _ = usb_communication::echo(data, &mut sender, &mut parser).await;
             }
         }
     };
-    join(usb.run(), join(echo_fut, receiver_fut)).await;
+
+    echo_fut.await;
+}
+
+#[task]
+async fn run_usb(mut usb: UsbDevice<'static, usb::Driver<'static, USB>>) {
+    usb.run().await;
+}
+
+#[task]
+async fn handle_buttons(pio: PIO0, receiver_pin: PIN_28, usb_sender: &'static Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>) {
+    let Pio { common: mut pio_common, sm0: pio_sm0, .. } = Pio::new(pio, Irqs);
+
+    let buttons = Buttons::new();
+
+    let mut remote_receiver = RemoteReceiver::new(
+        &mut pio_common,
+        pio_sm0,
+        receiver_pin,
+        buttons,
+    );
+
+    loop {
+        let pressed_button = remote_receiver.read().await;
+        {
+            let mut sender = usb_sender.lock().await;
+            let _ = sender.write_packet(pressed_button).await;
+            let _ = sender.write_packet(b"\n").await;
+        }
+    }
 }

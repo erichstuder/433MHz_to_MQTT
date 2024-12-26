@@ -20,23 +20,25 @@ use static_cell::StaticCell;
 use app::parser::{self, Parser};
 
 embassy_rp::bind_interrupts!(struct Irqs {
-    USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
+    USBCTRL_IRQ => usb::InterruptHandler<USB>;
 });
 
-pub struct Disconnected {}
+type UsbDriver = usb::Driver<'static, USB>;
 
-impl From<UsbEndpointError> for Disconnected {
+pub struct UsbDisconnected {}
+
+impl From<UsbEndpointError> for UsbDisconnected {
     fn from(val: UsbEndpointError) -> Self {
         match val {
             UsbEndpointError::BufferOverflow => panic!("Buffer overflow"),
-            UsbEndpointError::Disabled => Disconnected {},
+            UsbEndpointError::Disabled => UsbDisconnected {},
         }
     }
 }
 
 pub struct UsbCommunication {
-    pub cdc_acm_class: CdcAcmClass<'static, usb::Driver<'static, USB>>,
-    pub usb: UsbDevice<'static, usb::Driver<'static, USB>>,
+    pub cdc_acm_class: CdcAcmClass<'static, UsbDriver>,
+    pub usb: UsbDevice<'static, UsbDriver>,
 }
 
 impl UsbCommunication {
@@ -89,11 +91,11 @@ impl UsbCommunication {
     }
 }
 
-pub async fn echo<'d, I: usb::Instance + 'd, E: parser::EnterBootloader, P: parser::Persistency>(
+pub async fn echo<E: parser::EnterBootloader, P: parser::Persistency>(
     data: &[u8],
-    sender: &mut cdc_acm::Sender<'d, usb::Driver<'d, I>>,
-    parser: &mut Parser<E, P>
-) -> Result<(), Disconnected>
+    sender: &mut cdc_acm::Sender<'static,
+    UsbDriver>, parser: &mut Parser<E, P>
+) -> Result<(), UsbDisconnected>
 {
     let answer = parser.parse_message(data);
     sender.write_packet(answer).await?;

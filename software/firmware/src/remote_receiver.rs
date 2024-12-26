@@ -57,11 +57,11 @@ impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         Self { sm: pio_sm, buttons }
     }
 
-    pub async fn read(&mut self) -> &[u8]{
+    pub async fn read(&mut self) -> &str{
         loop {
             let value = self.sm.rx().wait_pull().await;
             if let Some(button) = self.buttons.match_button(value) {
-                return button;
+                return button
             }
         }
     }

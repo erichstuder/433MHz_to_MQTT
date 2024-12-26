@@ -66,7 +66,7 @@ async fn handle_buttons(pio: PIO0, receiver_pin: PIN_28, usb_sender: &'static Us
         let pressed_button = remote_receiver.read().await;
         {
             let mut sender = usb_sender.lock().await;
-            let _ = sender.write_packet(pressed_button).await;
+            let _ = sender.write_packet(pressed_button.as_bytes()).await;
             let _ = sender.write_packet(b"\n").await;
         }
     }

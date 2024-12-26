@@ -72,65 +72,61 @@ async fn handle_buttons(pio: PIO0, receiver_pin: PIN_28, usb_sender: &'static Us
     }
 }
 
+struct EnterBootloader;
+impl parser::EnterBootloader for EnterBootloader {
+    fn call(&mut self) {
+        embassy_rp::rom_data::reset_to_usb_boot(0, 0);
+    }
+}
+
+struct ParserToPersistency {
+    persistency: Persistency,
+}
+impl ParserToPersistency {
+    fn new(flash: FLASH, dma_ch0: DMA_CH0) -> Self {
+        Self {
+            persistency: Persistency::new(flash, dma_ch0),
+        }
+    }
+}
+impl parser::Persistency for ParserToPersistency {
+    fn store(&mut self, value: &[u8], value_id: parser::ValueId) {
+        match value_id {
+            parser::ValueId::WifiSsid           => self.persistency.store(value, persistency::ValueId::WifiSsid),
+            parser::ValueId::WifiPassword       => self.persistency.store(value, persistency::ValueId::WifiPassword),
+            parser::ValueId::MqttHostIp         => self.persistency.store(value, persistency::ValueId::MqttHostIp),
+            parser::ValueId::MqttBrokerUsername => self.persistency.store(value, persistency::ValueId::MqttBrokerUsername),
+            parser::ValueId::MqttBrokerPassword => self.persistency.store(value, persistency::ValueId::MqttBrokerPassword),
+        }
+    }
+
+    fn read(&mut self, value_id: parser::ValueId) -> &[u8] {
+        match value_id {
+            parser::ValueId::WifiSsid           => self.persistency.read(persistency::ValueId::WifiSsid),
+            parser::ValueId::WifiPassword       => self.persistency.read(persistency::ValueId::WifiPassword),
+            parser::ValueId::MqttHostIp         => self.persistency.read(persistency::ValueId::MqttHostIp),
+            parser::ValueId::MqttBrokerUsername => self.persistency.read(persistency::ValueId::MqttBrokerUsername),
+            parser::ValueId::MqttBrokerPassword => self.persistency.read(persistency::ValueId::MqttBrokerPassword),
+        }
+    }
+}
+
 #[task]
 async fn echo(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutex) {
-    let mut buf = [0; 64];
-
-    struct EnterBootloaderImpl;
-    impl parser::EnterBootloader for EnterBootloaderImpl {
-        fn call(&mut self) {
-            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-        }
-    }
-
-    struct PersistencyImpl {
-        persistency: Persistency,
-    }
-    impl PersistencyImpl {
-        fn new(flash: FLASH, dma_ch0: DMA_CH0) -> Self {
-            Self {
-                persistency: Persistency::new(flash, dma_ch0),
-            }
-        }
-    }
-    impl parser::Persistency for PersistencyImpl {
-        fn store(&mut self, value: &[u8], value_id: parser::ValueId) {
-            match value_id {
-                parser::ValueId::WifiSsid           => self.persistency.store(value, persistency::ValueId::WifiSsid),
-                parser::ValueId::WifiPassword       => self.persistency.store(value, persistency::ValueId::WifiPassword),
-                parser::ValueId::MqttHostIp         => self.persistency.store(value, persistency::ValueId::MqttHostIp),
-                parser::ValueId::MqttBrokerUsername => self.persistency.store(value, persistency::ValueId::MqttBrokerUsername),
-                parser::ValueId::MqttBrokerPassword => self.persistency.store(value, persistency::ValueId::MqttBrokerPassword),
-            }
-        }
-
-        fn read(&mut self, value_id: parser::ValueId) -> &[u8] {
-            match value_id {
-                parser::ValueId::WifiSsid           => self.persistency.read(persistency::ValueId::WifiSsid),
-                parser::ValueId::WifiPassword       => self.persistency.read(persistency::ValueId::WifiPassword),
-                parser::ValueId::MqttHostIp         => self.persistency.read(persistency::ValueId::MqttHostIp),
-                parser::ValueId::MqttBrokerUsername => self.persistency.read(persistency::ValueId::MqttBrokerUsername),
-                parser::ValueId::MqttBrokerPassword => self.persistency.read(persistency::ValueId::MqttBrokerPassword),
-            }
-        }
-    }
-
-    let persistency = PersistencyImpl::new(flash, dma_ch0);
-    let mut parser = Parser::new(EnterBootloaderImpl, persistency);
+    let parser_to_persistency = ParserToPersistency::new(flash, dma_ch0);
+    let mut parser = Parser::new(EnterBootloader, parser_to_persistency);
+    let mut buf: [u8; 64] = [0; 64];
 
     loop {
         usb_receiver.wait_connection().await;
-        let n = match usb_receiver.read_packet(&mut buf).await {
-            Ok(n) => n,
+        let byte_cnt = match usb_receiver.read_packet(&mut buf).await {
+            Ok(byte_cnt) => byte_cnt,
             Err(_e) => {
-                // Handle the error
                 continue;
             }
         };
-        let data = &buf[..n];
-        {
-            let mut sender = usb_sender.lock().await;
-            let _ = usb_communication::echo(data, &mut sender, &mut parser).await;
-        }
+        let data = &buf[..byte_cnt];
+        let mut sender = usb_sender.lock().await;
+        let _ = usb_communication::echo(data, &mut sender, &mut parser).await;
     }
 }

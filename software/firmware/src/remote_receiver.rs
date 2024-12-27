@@ -17,13 +17,13 @@ use fixed::traits::ToFixed;
 
 use app::buttons::Buttons;
 
-pub struct RemoteReceiver<'d, T: pio::Instance, const SM: usize> {
-    sm: pio::StateMachine<'d, T, SM>,
+pub struct RemoteReceiver<'d, PIO: pio::Instance, const SM: usize> {
+    pio_sm: pio::StateMachine<'d, PIO, SM>,
     buttons: Buttons,
 }
 
-impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
-    pub fn new(pio: &mut pio::Common<'d, T>, mut pio_sm: pio::StateMachine<'d, T, SM>, receiver_pin: impl PioPin, buttons: Buttons) -> Self {
+impl<'d, PIO: pio::Instance, const SM: usize> RemoteReceiver<'d, PIO, SM> {
+    pub fn new(pio: &mut pio::Common<'d, PIO>, mut pio_sm: pio::StateMachine<'d, PIO, SM>, receiver_pin: impl PioPin, buttons: Buttons) -> Self {
         let mut pin = pio.make_pio_pin(receiver_pin);
         pin.set_pull(gpio::Pull::None);
         pio_sm.set_pin_dirs(pio::Direction::In, &[&pin]);
@@ -54,12 +54,12 @@ impl<'d, T: pio::Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
         cfg.use_program(&pio.load_program(&prg.program), &[]);
         pio_sm.set_config(&cfg);
         pio_sm.set_enable(true);
-        Self { sm: pio_sm, buttons }
+        Self { pio_sm, buttons }
     }
 
     pub async fn read(&mut self) -> &str{
         loop {
-            let value = self.sm.rx().wait_pull().await;
+            let value = self.pio_sm.rx().wait_pull().await;
             if let Some(button) = self.buttons.match_button(value) {
                 return button
             }

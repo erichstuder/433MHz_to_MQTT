@@ -19,7 +19,7 @@ pub trait EnterBootloader {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum DataField { //TODO: rename DataField to something more meaningful.
+pub enum ValueId {
     WifiSsid,
     WifiPassword,
     MqttHostIp,
@@ -29,8 +29,8 @@ pub enum DataField { //TODO: rename DataField to something more meaningful.
 
 #[cfg_attr(test, automock)]
 pub trait Persistency {
-    fn store(&mut self, value: &[u8], field: DataField);
-    fn read(&mut self, field: DataField) -> &[u8];
+    fn store(&mut self, value: &[u8], field: ValueId);
+    fn read(&mut self, field: ValueId) -> &[u8];
 }
 
 pub struct Parser<E: EnterBootloader, P: Persistency> {
@@ -55,23 +55,23 @@ impl<E: EnterBootloader, P: Persistency> Parser<E, P> {
 
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
-            self.persistency.store(value, DataField::WifiSsid);
+            self.persistency.store(value, ValueId::WifiSsid);
         }
         else if parameters.starts_with(WIFI_PASSWORD) {
             let value = &parameters[WIFI_PASSWORD.len()..];
-            self.persistency.store(value, DataField::WifiPassword);
+            self.persistency.store(value, ValueId::WifiPassword);
         }
         else if parameters.starts_with(MQTT_HOST_IP) {
             let value = &parameters[MQTT_HOST_IP.len()..];
-            self.persistency.store(value, DataField::MqttHostIp);
+            self.persistency.store(value, ValueId::MqttHostIp);
         }
         else if parameters.starts_with(MQTT_BROKER_USERNAME) {
             let value = &parameters[MQTT_BROKER_USERNAME.len()..];
-            self.persistency.store(value, DataField::MqttBrokerUsername);
+            self.persistency.store(value, ValueId::MqttBrokerUsername);
         }
         else if parameters.starts_with(MQTT_BROKER_PASSWORD) {
             let value = &parameters[MQTT_BROKER_PASSWORD.len()..];
-            self.persistency.store(value, DataField::MqttBrokerPassword);
+            self.persistency.store(value, ValueId::MqttBrokerPassword);
         }
         else {
             panic!("unknown parameter");
@@ -80,19 +80,19 @@ impl<E: EnterBootloader, P: Persistency> Parser<E, P> {
 
     fn parse_read_command(&mut self, parameters: &[u8]) -> &[u8]{
         if parameters.starts_with(b"wifi_ssid") {
-            return self.persistency.read(DataField::WifiSsid);
+            return self.persistency.read(ValueId::WifiSsid);
         }
         else if parameters.starts_with(b"wifi_password") {
-            return self.persistency.read(DataField::WifiPassword);
+            return self.persistency.read(ValueId::WifiPassword);
         }
         else if parameters.starts_with(b"mqtt_host_ip") {
-            return self.persistency.read(DataField::MqttHostIp);
+            return self.persistency.read(ValueId::MqttHostIp);
         }
         else if parameters.starts_with(b"mqtt_broker_username") {
-            return self.persistency.read(DataField::MqttBrokerUsername);
+            return self.persistency.read(ValueId::MqttBrokerUsername);
         }
         else if parameters.starts_with(b"mqtt_broker_password") {
-            return self.persistency.read(DataField::MqttBrokerPassword);
+            return self.persistency.read(ValueId::MqttBrokerPassword);
         }
         else {
             panic!("unknown parameter");
@@ -166,11 +166,11 @@ mod tests {
     #[test]
     fn test_store_command() {
         let commands = vec![
-            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       DataField::WifiSsid),
-            (b"wifi_password".as_ref(),        b"12345".as_ref(),         DataField::WifiPassword),
-            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), DataField::MqttHostIp),
-            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     DataField::MqttBrokerUsername),
-            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     DataField::MqttBrokerPassword),
+            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       ValueId::WifiSsid),
+            (b"wifi_password".as_ref(),        b"12345".as_ref(),         ValueId::WifiPassword),
+            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), ValueId::MqttHostIp),
+            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     ValueId::MqttBrokerUsername),
+            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     ValueId::MqttBrokerPassword),
         ];
 
         for (command, value, field) in commands {

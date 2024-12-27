@@ -11,56 +11,39 @@
 //!    @enduml
 
 use embassy_rp::peripherals::USB;
-use embassy_rp::usb::{Driver, Instance};
-use embassy_usb::{Builder, Config, UsbDevice};
-use embassy_usb::class::cdc_acm::{CdcAcmClass, State};
-use embassy_usb::driver::EndpointError;
-use embassy_usb::class::cdc_acm::Sender;
+use embassy_rp::usb;
+use embassy_usb::UsbDevice;
+use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
+use embassy_usb::driver::EndpointError as UsbEndpointError;
+use static_cell::StaticCell;
 
-use app;
-
-// fn init_parser() -> app::Parser<app::EnterBootloader, app::Persistency> {
-//     struct EnterBootloaderImpl;
-//     impl app::EnterBootloader for EnterBootloaderImpl {
-//         fn call(&mut self) {
-//             embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-//         }
-//     }
-
-//     struct PersistencyImpl;
-//     impl app::Persistency for PersistencyImpl {
-//         fn store_wifi_ssid(&mut self, wifi_ssid: &[u8]) {
-//             flash.store_wifi_ssid(wifi_ssid);
-//         }
-//     }
-
-//     app::Parser::new(EnterBootloaderImpl, PersistencyImpl)
-// }
+use app::parser::{self, Parser};
 
 embassy_rp::bind_interrupts!(struct Irqs {
-    USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<embassy_rp::peripherals::USB>;
+    USBCTRL_IRQ => usb::InterruptHandler<USB>;
 });
 
-pub struct Disconnected {}
+type UsbDriver = usb::Driver<'static, USB>;
 
-impl From<EndpointError> for Disconnected {
-    fn from(val: EndpointError) -> Self {
+pub struct UsbDisconnected {}
+
+impl From<UsbEndpointError> for UsbDisconnected {
+    fn from(val: UsbEndpointError) -> Self {
         match val {
-            EndpointError::BufferOverflow => panic!("Buffer overflow"),
-            EndpointError::Disabled => Disconnected {},
+            UsbEndpointError::BufferOverflow => panic!("Buffer overflow"),
+            UsbEndpointError::Disabled => UsbDisconnected {},
         }
     }
 }
 
-pub struct UsbCommunication<'a> {
-    pub cdc_acm_class: CdcAcmClass<'a, Driver<'a, USB>>,
-    pub usb: UsbDevice<'a, Driver<'a, USB>>,
-    //parser: app::Parser<app::EnterBootloader, app::Persistency>,
+pub struct UsbCommunication {
+    pub cdc_acm_class: CdcAcmClass<'static, UsbDriver>,
+    pub usb: UsbDevice<'static, UsbDriver>,
 }
 
-impl<'a> UsbCommunication<'a> {
-    pub fn new(usb: USB, state: &'a mut State<'a>) -> Self{
-        let mut config = Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
+impl UsbCommunication {
+    pub fn new(usb: USB) -> Self{
+        let mut config = embassy_usb::Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
         config.manufacturer = Some("github.com/erichstuder");
         config.product = Some("433MHz_to_MQTT");
         config.serial_number = Some("12345678");
@@ -74,40 +57,46 @@ impl<'a> UsbCommunication<'a> {
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
 
-        static mut DEVICE_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
-        static mut CONFIG_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
-        static mut BOS_DESCRIPTOR_BUF: [u8; 256] = [0; 256];
-        static mut CONTROL_BUF: [u8; 64] = [0; 64];
+        static DEVICE_DESCRIPTOR_BUF: StaticCell<[u8; 256]> = StaticCell::new();
+        let device_descriptor_buf = DEVICE_DESCRIPTOR_BUF.init([0; 256]);
 
-        #[allow(unknown_lints)] //TODO: all this allow stuff should be removed
-        let mut builder = Builder::new(
-            Driver::new(usb, Irqs),
+        static CONFIG_DESCRIPTOR_BUF: StaticCell<[u8; 256]> = StaticCell::new();
+        let config_descriptor_buf = CONFIG_DESCRIPTOR_BUF.init([0; 256]);
+
+        static BOS_DESCRIPTOR_BUF: StaticCell<[u8; 256]> = StaticCell::new();
+        let bos_descriptor_buf = BOS_DESCRIPTOR_BUF.init([0; 256]);
+
+        static CONTROL_BUF: StaticCell<[u8; 64]> = StaticCell::new();
+        let control_buf = CONTROL_BUF.init([0; 64]);
+
+        let mut builder = embassy_usb::Builder::new(
+            usb::Driver::new(usb, Irqs),
             config,
-            #[allow(static_mut_refs)]
-            unsafe{ &mut DEVICE_DESCRIPTOR_BUF },
-            #[allow(static_mut_refs)]
-            unsafe { &mut CONFIG_DESCRIPTOR_BUF },
-            #[allow(static_mut_refs)]
-            unsafe { &mut BOS_DESCRIPTOR_BUF },
-            #[allow(static_mut_refs)]
-            unsafe { &mut CONTROL_BUF },
+            device_descriptor_buf,
+            config_descriptor_buf,
+            bos_descriptor_buf,
+            control_buf,
         );
 
-        let cdc_acm_class = CdcAcmClass::new(&mut builder, state, 64);
-        let usb = builder.build();
+        static CDC_ACM_STATE: StaticCell<cdc_acm::State> = StaticCell::new();
+        let cdc_acm_state = CDC_ACM_STATE.init(cdc_acm::State::new());
+        let cdc_acm_class = CdcAcmClass::new(&mut builder, cdc_acm_state, 64);
 
-        //let parser = init_parser();
+        let usb = builder.build();
 
         Self {
             cdc_acm_class,
             usb,
-            //parser,
         }
     }
 }
 
-pub async fn echo<'d, T: Instance + 'd, E: app::EnterBootloader, P: app::Persistency>(data: &[u8], sender: &mut Sender<'d, Driver<'d, T>>, parser: &mut app::Parser<E, P>) -> Result<(), Disconnected> {
-    //let mut parser = app::Parser::new(EnterBootloaderImpl, PersistencyImpl);
+pub async fn echo<E: parser::EnterBootloader, P: parser::Persistency>(
+    data: &[u8],
+    sender: &mut cdc_acm::Sender<'static, UsbDriver>,
+    parser: &mut Parser<E, P>
+) -> Result<(), UsbDisconnected>
+{
     let answer = parser.parse_message(data);
     sender.write_packet(answer).await?;
     Ok(())

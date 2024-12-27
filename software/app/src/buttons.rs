@@ -13,7 +13,7 @@ impl Buttons {
         }
     }
 
-    pub fn match_button<'d>(&mut self, value: u32) -> Option<&'d [u8]> {
+    pub fn match_button(&mut self, value: u32) -> Option<&'static str> {
         // Return the the button if it was read more than once in a row.
         match self.last_value {
             Some(last) if value == last => {
@@ -27,17 +27,17 @@ impl Buttons {
 
         if self.value_cnt >= 2 {
             match value {
-                0x017E9E90u32 => return Some(b"button 1"),
-                0x017E9E88u32 => return Some(b"button 2"),
-                0x017E9E98u32 => return Some(b"button 3"),
-                0x017E9E84u32 => return Some(b"button 4"),
-                0x017E9E94u32 => return Some(b"button 5"),
-                0x017E9E8Cu32 => return Some(b"button 6"),
-                0x017E9E9Cu32 => return Some(b"button 7"),
-                0x017E9E82u32 => return Some(b"button 8"),
-                0x017E9E92u32 => return Some(b"button 9"),
-                0x017E9E8Au32 => return Some(b"button 10"),
-                _ => return Some(b"undefined button"),
+                0x017E9E90u32 => return Some("button 1"),
+                0x017E9E88u32 => return Some("button 2"),
+                0x017E9E98u32 => return Some("button 3"),
+                0x017E9E84u32 => return Some("button 4"),
+                0x017E9E94u32 => return Some("button 5"),
+                0x017E9E8Cu32 => return Some("button 6"),
+                0x017E9E9Cu32 => return Some("button 7"),
+                0x017E9E82u32 => return Some("button 8"),
+                0x017E9E92u32 => return Some("button 9"),
+                0x017E9E8Au32 => return Some("button 10"),
+                _ => return Some("undefined button"),
             }
         }
         None
@@ -73,11 +73,11 @@ mod tests {
 
             // second time is expected the correct button
             let result_button = buttons.match_button(value);
-            assert_eq!(result_button.unwrap(), button.as_bytes(), "expected button: {}", button);
+            assert_eq!(result_button.unwrap(), button, "expected button: {}", button);
 
             // third and more times are also expected the correct button
             let result_button = buttons.match_button(value);
-            assert_eq!(result_button.unwrap(), button.as_bytes(), "expected button: {}", button);
+            assert_eq!(result_button.unwrap(), button, "expected button: {}", button);
         }
     }
 }

@@ -9,26 +9,26 @@
 //!
 //!    @enduml
 
-use embassy_rp::gpio::Pull;
-use embassy_rp::pio;
-use fixed::traits::ToFixed;
-use embassy_rp::pio::{Common, Config, FifoJoin, Instance, PioPin, ShiftDirection, StateMachine};
 use {defmt_rtt as _, panic_probe as _};
+use embassy_rp::{gpio, pio};
+use embassy_rp::pio::PioPin;
+use pio_proc::pio_asm;
+use fixed::traits::ToFixed;
 
-use app::Buttons;
+use app::buttons::Buttons;
 
-pub struct RemoteReceiver<'d, T: Instance, const SM: usize> {
-    sm: StateMachine<'d, T, SM>,
+pub struct RemoteReceiver<'d, PIO: pio::Instance, const SM: usize> {
+    pio_sm: pio::StateMachine<'d, PIO, SM>,
     buttons: Buttons,
 }
 
-impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
-    pub fn new(pio: &mut Common<'d, T>, mut sm: StateMachine<'d, T, SM>, pin: impl PioPin, buttons: Buttons) -> Self {
-        let mut pin = pio.make_pio_pin(pin);
-        pin.set_pull(Pull::None);
-        sm.set_pin_dirs(pio::Direction::In, &[&pin]);
+impl<'d, PIO: pio::Instance, const SM: usize> RemoteReceiver<'d, PIO, SM> {
+    pub fn new(pio: &mut pio::Common<'d, PIO>, mut pio_sm: pio::StateMachine<'d, PIO, SM>, receiver_pin: impl PioPin, buttons: Buttons) -> Self {
+        let mut pin = pio.make_pio_pin(receiver_pin);
+        pin.set_pull(gpio::Pull::None);
+        pio_sm.set_pin_dirs(pio::Direction::In, &[&pin]);
 
-        let prg = pio_proc::pio_asm!(
+        let prg = pio_asm!(
             "startup:"
                 "set x 31", // 31 is maximum and sufficient
             "assert_initial_low_pulse:",
@@ -45,23 +45,23 @@ impl<'d, T: Instance, const SM: usize> RemoteReceiver<'d, T, SM> {
             "push",
         );
 
-        let mut cfg = Config::default();
+        let mut cfg = pio::Config::default();
         cfg.set_in_pins(&[&pin]);
         cfg.set_jmp_pin(&pin);
-        cfg.fifo_join = FifoJoin::RxOnly;
-        cfg.shift_in.direction = ShiftDirection::Left;
+        cfg.fifo_join = pio::FifoJoin::RxOnly;
+        cfg.shift_in.direction = pio::ShiftDirection::Left;
         cfg.clock_divider = 12500.to_fixed(); // 125MHz / 12500 = 10kHz
         cfg.use_program(&pio.load_program(&prg.program), &[]);
-        sm.set_config(&cfg);
-        sm.set_enable(true);
-        Self { sm, buttons }
+        pio_sm.set_config(&cfg);
+        pio_sm.set_enable(true);
+        Self { pio_sm, buttons }
     }
 
-    pub async fn read(&mut self) -> &[u8]{
+    pub async fn read(&mut self) -> &str{
         loop {
-            let value = self.sm.rx().wait_pull().await;
+            let value = self.pio_sm.rx().wait_pull().await;
             if let Some(button) = self.buttons.match_button(value) {
-                return button;
+                return button
             }
         }
     }

@@ -6,12 +6,25 @@
     "customizations": {
         "vscode": {
             "settings": {
-                "terminal.integrated.shell.linux": "/bin/bash"
+                "terminal.integrated.shell.linux": "/bin/bash",
+                "rust-analyzer.check.allTargets": false,
+                "rust-analyzer.inlayHints.typeHints.enable": false,
+                "rust-analyzer.inlayHints.parameterHints.enable": false,
+                "editor.semanticTokenColorCustomizations": {
+                    "enabled": true,
+                    "rules": {
+                        "*.mutable": {
+                            "underline": false
+                        }
+                    }
+                }
             },
             "extensions": [
                 "rust-lang.rust-analyzer",
                 "fill-labs.dependi",
-                "tamasfe.even-better-toml"
+                "tamasfe.even-better-toml",
+                "ms-azuretools.vscode-docker",
+                "ybaumes.highlight-trailing-white-spaces"
             ]
         }
     }

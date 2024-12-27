@@ -93,8 +93,8 @@ impl UsbCommunication {
 
 pub async fn echo<E: parser::EnterBootloader, P: parser::Persistency>(
     data: &[u8],
-    sender: &mut cdc_acm::Sender<'static,
-    UsbDriver>, parser: &mut Parser<E, P>
+    sender: &mut cdc_acm::Sender<'static, UsbDriver>,
+    parser: &mut Parser<E, P>
 ) -> Result<(), UsbDisconnected>
 {
     let answer = parser.parse_message(data);

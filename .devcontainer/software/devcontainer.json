@@ -2,7 +2,7 @@
     "name": "software",
     "dockerComposeFile": "${localWorkspaceFolder}/software/docker-compose.yml",
     "service": "main",
-    "workspaceFolder": "/home/${localEnv:USER}/project",
+    "workspaceFolder": "/home/${localEnv:USER}/software",
     "customizations": {
         "vscode": {
             "settings": {

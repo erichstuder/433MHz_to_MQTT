@@ -32,4 +32,7 @@ if __name__ == "__main__":
     else:
         commands = None
 
-    ex.run(commands)
+    try:
+        ex.run(commands)
+    except KeyboardInterrupt:
+        print('  Interrupted by user')

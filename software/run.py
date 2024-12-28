@@ -2,7 +2,6 @@
 
 import sys
 import pathlib
-import serial
 import time
 
 sys.path.append(str(pathlib.Path(__file__).parent.parent / 'project_management'))
@@ -35,8 +34,14 @@ if __name__ == "__main__":
     elif ex.arguments.test:
         commands = 'cd app && cargo test'
     elif ex.arguments.upload:
+        if ex.running_in_container:
+            print("Upload is not (yet) supported inside the container.", file=sys.stderr)
+            # The problem is, that the RPI is mounted as owned by root, on which the docker user has no access.
+            sys.exit(1)
+
         # TODO: Maybe we could send the device into bootloader mode directly from inside the container?
         import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.
+        import serial
         udev = pyudev.Context()
         for usb_device in  udev.list_devices(subsystem="usb"):
             if usb_device.attributes.get('manufacturer') == b'github.com/erichstuder' and usb_device.attributes.get('product') == b'433MHz_to_MQTT':

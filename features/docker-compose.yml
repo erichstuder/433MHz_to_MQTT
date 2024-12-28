@@ -4,8 +4,9 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - .:/usr/project
-    working_dir: /usr/project
+      - .:/home/${USER}/features
+      - ../project_management:/home/${USER}/project_management
+    working_dir: /home/${USER}/features
     stdin_open: true
     tty: true
     privileged: true

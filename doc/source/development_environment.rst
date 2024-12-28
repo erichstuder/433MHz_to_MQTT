@@ -151,7 +151,7 @@ Other debugging setup might work as well but are not tested.
 
 There are two plugins configured for direct debugging in VS Code:
 
-- `Debugger for probe-rs <https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug>`_
+- `Debugger for probe-rs <https://marketplace.visualstudio.com/items?itemName=probe-rs.probe-rs-debugger>`_
 - `Cortex-Debug <https://marketplace.visualstudio.com/items?itemName=marus25.cortex-debug>`_
 
 Both of them are set up in the launch.json file.
@@ -161,7 +161,7 @@ Another very powerfull tool proven to work is `Ozone <https://www.segger.com/pro
 
 launch.json
 ^^^^^^^^^^^^
-.. program-output:: cat ../../.vscode/launch.json
+.. program-output:: cat ../../software/.vscode/launch.json
 
 
 .. _Scripts:

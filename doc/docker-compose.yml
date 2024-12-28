@@ -9,7 +9,7 @@ services:
     ports:
       - "8000:8000"
     # prevent vs code warning by marking repositories as safe and open a shell
-    command: sh -c "git config --global --add safe.directory /usr/project && /bin/bash"
+    command: sh -c "git config --global --add safe.directory /home/${USER}/project && /bin/bash"
     stdin_open: true
     tty: true
     stop_grace_period: 0s

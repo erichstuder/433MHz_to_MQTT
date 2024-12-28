@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ..:/usr/project
-    working_dir: /usr/project/doc
+      - ..:/home/${USER}/project
+    working_dir: /home/${USER}/project/doc
     ports:
       - "8000:8000"
     # prevent vs code warning by marking repositories as safe and open a shell

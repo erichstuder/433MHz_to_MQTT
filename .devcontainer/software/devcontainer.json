@@ -24,7 +24,9 @@
                 "fill-labs.dependi",
                 "tamasfe.even-better-toml",
                 "ms-azuretools.vscode-docker",
-                "ybaumes.highlight-trailing-white-spaces"
+                "ybaumes.highlight-trailing-white-spaces",
+                "probe-rs.probe-rs-debugger",
+                "ms-python.python"
             ]
         }
     }

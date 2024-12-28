@@ -3,6 +3,8 @@ FROM rust:1.83.0
 RUN apt-get update && apt-get install -y \
     libudev-dev=252.31-1~deb12u1
 
+RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/download/v0.25.0/probe-rs-tools-installer.sh | sh
+
 ARG USER
 ARG UID
 RUN useradd -m -s /bin/bash -u ${UID:-2222} $USER

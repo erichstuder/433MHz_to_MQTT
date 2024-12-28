@@ -13,3 +13,6 @@ rustflags = [
 [build]
 target = "thumbv6m-none-eabi"
 target-dir = "build"
+
+[env]
+DEFMT_LOG = "debug"

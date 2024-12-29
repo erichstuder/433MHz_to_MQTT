@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
     libasound2=1.2.8-1+b1 \
     plantuml=1:1.2020.2+ds-3 \
     xvfb=2:21.1.7-3+deb12u8 \
-    tree=2.1.0-1
+    tree=2.1.0-1 \
+    locales=2.36-9+deb12u9
 
 WORKDIR /usr/drawio
 RUN wget https://github.com/jgraph/drawio-desktop/releases/download/v25.0.2/drawio-amd64-25.0.2.deb && \
@@ -30,3 +31,6 @@ RUN . $HOME/.cargo/env  && python3 -m pip install --verbose \
     sphinx-gherkindoc==3.6.4 \
     setuptools==75.6.0 \
     pillow==11.0.0
+
+RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen

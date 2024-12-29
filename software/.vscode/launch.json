@@ -6,7 +6,7 @@
             "type": "probe-rs-debug",
             "request": "launch",
             "preLaunchTask": "firmware_build",
-            "cwd": "${workspaceFolder}/software/firmware",
+            "cwd": "${workspaceFolder}/firmware",
             "connectUnderReset": false,
             "chip": "RP2040",
             "flashingConfig": {
@@ -16,7 +16,7 @@
             "coreConfigs": [
                 {
                     "coreIndex": 0,
-                    "programBinary": "tmp/thumbv6m-none-eabi/debug/firmware",
+                    "programBinary": "build/thumbv6m-none-eabi/debug/firmware",
                     "rttEnabled": true,
                 }
             ],

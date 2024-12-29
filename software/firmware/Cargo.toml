@@ -20,7 +20,7 @@ pio-proc = "0.2.2"
 pio = "0.2.1"
 static_cell = "2.1.0"
 portable-atomic = { version = "1.10.0", features = ["critical-section"] }
-cyw43 = { version = "0.2.0", features = ["defmt", "firmware-logs"] }
+cyw43 = "0.2.0" # defmt not used as there are warnings to ignore (see: https://github.com/embassy-rs/embassy/issues/3694)
 cyw43-pio = { version = "0.2.0", features = ["defmt"] }
 
 [profile.dev]

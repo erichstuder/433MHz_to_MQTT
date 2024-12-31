@@ -1,5 +1,15 @@
 //! This is the main file of the firmware.
 //! The pieces are set up, connected together and started.
+//!
+//! .. plantuml::
+//!
+//!    @startuml
+//!
+//!    main *-- persistency
+//!    main *-- remote_receiver
+//!    main *-- usb_communication
+//!
+//!    @enduml
 
 #![no_std]
 #![no_main]

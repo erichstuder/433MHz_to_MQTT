@@ -6,7 +6,7 @@
 //!
 //!    @startuml
 //!
-//!    UsbCommunication -- Parser
+//!    UsbCommunication o-- Parser
 //!
 //!    @enduml
 

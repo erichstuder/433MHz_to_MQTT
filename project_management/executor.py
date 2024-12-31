@@ -11,6 +11,7 @@ class Executor:
     def __init__(self, additional_arguments, description):
         self._parse_arguments(additional_arguments, description)
         self.work_dir = common.get_caller_path()
+        self.running_in_container = os.path.exists('/.dockerenv')
 
 
     def _parse_arguments(self, additional_arguments, description):
@@ -40,6 +41,17 @@ class Executor:
         if self.arguments.keep_open:
             commands = 'bash'
 
+        if self.running_in_container:
+            self._run_directly(commands)
+        else:
+            self._run_with_container(commands)
+
+
+    def _run_directly(self, commands):
+        subprocess.run(commands, shell=True, check=True)
+
+
+    def _run_with_container(self, commands):
         docker_args = ['bash', '-c', 'set -e \n ' + commands]
         yml_file_path = self.work_dir + '/docker-compose.yml'
         project = 'project_management'

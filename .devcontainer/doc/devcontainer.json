@@ -2,12 +2,17 @@
     "name": "doc",
     "dockerComposeFile": "${localWorkspaceFolder}/doc/docker-compose.yml",
     "service": "main",
-    "workspaceFolder": "/usr/project/doc",
+    "workspaceFolder": "/home/${localEnv:USER}/project/doc",
     "customizations": {
         "vscode": {
             "settings": {
                 "terminal.integrated.shell.linux": "/bin/bash"
-            }
+            },
+            "extensions": [
+                "ms-azuretools.vscode-docker",
+                "ms-python.python",
+                "ybaumes.highlight-trailing-white-spaces"
+            ]
         }
     },
     "remoteUser": "root"

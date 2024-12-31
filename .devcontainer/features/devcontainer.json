@@ -2,7 +2,7 @@
     "name": "features",
     "dockerComposeFile": "${localWorkspaceFolder}/features/docker-compose.yml",
     "service": "main",
-    "workspaceFolder": "/usr/project",
+    "workspaceFolder": "/home/${localEnv:USER}/features",
     "customizations": {
         "vscode": {
             "settings": {

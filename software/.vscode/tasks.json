@@ -4,7 +4,7 @@
         {
             "label": "firmware_build",
             "type": "shell",
-            "command": "python3 run.py -b",
+            "command": "./run.py --build",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -13,7 +13,7 @@
                 "$rustc"
             ],
             "options": {
-                "cwd": "${workspaceFolder}/software"
+                "cwd": "${workspaceFolder}"
             }
         }
     ]

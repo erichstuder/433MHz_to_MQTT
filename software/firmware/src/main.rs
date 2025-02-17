@@ -16,6 +16,7 @@ use embassy_usb::class::cdc_acm;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use static_cell::StaticCell;
+use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
 use embassy_time::{Duration, Timer};
 
 mod persistency;
@@ -158,14 +159,14 @@ struct HW {
 }
 
 #[task]
-async fn mqtt(spawner: Spawner, hw: HW) { //TODO: darf man einen spawner als parameter übergeben?
+async fn mqtt(spawner: Spawner, hw: HW) {
     let fw = include_bytes!("../../cyw43-firmware/43439A0.bin");
     let clm = include_bytes!("../../cyw43-firmware/43439A0_clm.bin");
 
     let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
     let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
     let mut pio = Pio::new(hw.pio_1, Pio1Irqs);
-    let spi = cyw43_pio::PioSpi::new(&mut pio.common, pio.sm0, pio.irq0, cs, hw.pin_24, hw.pin_29, hw.dma_ch1);
+    let spi = cyw43_pio::PioSpi::new(&mut pio.common, pio.sm0, DEFAULT_CLOCK_DIVIDER, pio.irq0, cs, hw.pin_24, hw.pin_29, hw.dma_ch1);
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
@@ -176,6 +177,20 @@ async fn mqtt(spawner: Spawner, hw: HW) { //TODO: darf man einen spawner als par
     control
         .set_power_management(cyw43::PowerManagementMode::PowerSave)
         .await;
+
+
+    // loop {
+    //     match control
+    //         .join(WIFI_NETWORK, JoinOptions::new(WIFI_PASSWORD.as_bytes()))
+    //         .await
+    //     {
+    //         Ok(_) => break,
+    //         Err(err) => {
+    //             info!("join failed with status={}", err.status);
+    //         }
+    //     }
+    // }
+
 
     let delay = Duration::from_millis(500);
     loop {

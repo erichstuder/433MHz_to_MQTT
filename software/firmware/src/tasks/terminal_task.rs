@@ -40,15 +40,17 @@ impl parser::Persistency for ParserToPersistency {
     }
 }
 
-struct EnterBootloader;
-impl parser::EnterBootloader for EnterBootloader {
-    fn call(&mut self) {
-        embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-    }
-}
+
 
 #[task]
 pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutex) {
+    struct EnterBootloader;
+    impl parser::EnterBootloader for EnterBootloader {
+        fn call(&mut self) {
+            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
+        }
+    }
+
     let parser_to_persistency = ParserToPersistency::new(flash, dma_ch0);
     let mut parser = Parser::new(EnterBootloader, parser_to_persistency);
     let mut buf: [u8; 64] = [0; 64];
@@ -63,6 +65,6 @@ pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, 
         };
         let data = &buf[..byte_cnt];
         let mut sender = usb_sender.lock().await;
-        let _ = usb_communication::echo(data, &mut sender, &mut parser).await;
+        let _ = usb_communication::parse_message(data, &mut sender, &mut parser).await;
     }
 }

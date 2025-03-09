@@ -91,7 +91,7 @@ impl UsbCommunication {
     }
 }
 
-pub async fn echo<E: parser::EnterBootloader, P: parser::Persistency>(
+pub async fn parse_message<E: parser::EnterBootloader, P: parser::Persistency>(
     data: &[u8],
     sender: &mut cdc_acm::Sender<'static, UsbDriver>,
     parser: &mut Parser<E, P>

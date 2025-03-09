@@ -17,8 +17,6 @@ use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
 use embassy_usb::driver::EndpointError as UsbEndpointError;
 use static_cell::StaticCell;
 
-use app::parser::{self, Parser};
-
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => usb::InterruptHandler<USB>;
 });
@@ -89,15 +87,4 @@ impl UsbCommunication {
             usb,
         }
     }
-}
-
-pub async fn parse_message<E: parser::EnterBootloader, P: parser::Persistency>(
-    data: &[u8],
-    sender: &mut cdc_acm::Sender<'static, UsbDriver>,
-    parser: &mut Parser<E, P>
-) -> Result<(), UsbDisconnected>
-{
-    let answer = parser.parse_message(data);
-    sender.write_packet(answer).await?;
-    Ok(())
 }

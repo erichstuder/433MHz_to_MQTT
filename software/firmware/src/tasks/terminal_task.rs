@@ -1,9 +1,16 @@
 use embassy_executor::task;
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 
+// use embassy_rp::peripherals::USB;
+// use embassy_rp::usb;
+// use embassy_usb::UsbDevice;
+// use embassy_usb::class::cdc_acm;
+// use embassy_usb::driver::EndpointError as UsbEndpointError;
+// use static_cell::StaticCell;
+
 use app::parser::{self, Parser};
 use crate::drivers::persistency::{self, Persistency};
-use crate::drivers::usb_communication;
+// use crate::drivers::usb_communication;
 
 use crate::UsbSenderMutex;
 use crate::UsbReceiver;
@@ -40,8 +47,6 @@ impl parser::Persistency for ParserToPersistency {
     }
 }
 
-
-
 #[task]
 pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutex) {
     struct EnterBootloader;
@@ -65,6 +70,7 @@ pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, 
         };
         let data = &buf[..byte_cnt];
         let mut sender = usb_sender.lock().await;
-        let _ = usb_communication::parse_message(data, &mut sender, &mut parser).await;
+        let answer = parser.parse_message(data);
+        sender.write_packet(answer).await.unwrap();
     }
 }

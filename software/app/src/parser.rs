@@ -14,8 +14,14 @@
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
-pub trait EnterBootloader {
+pub trait EnterBootloaderTrait {
     fn call(&mut self);
+}
+
+#[cfg_attr(test, automock)]
+pub trait PersistencyTrait {
+    fn store(&mut self, value: &[u8], field: ValueId);
+    fn read(&mut self, field: ValueId) -> &[u8];
 }
 
 #[derive(Debug, PartialEq)]
@@ -27,18 +33,12 @@ pub enum ValueId {
     MqttBrokerPassword,
 }
 
-#[cfg_attr(test, automock)]
-pub trait Persistency {
-    fn store(&mut self, value: &[u8], field: ValueId);
-    fn read(&mut self, field: ValueId) -> &[u8];
-}
-
-pub struct Parser<E: EnterBootloader, P: Persistency> {
+pub struct Parser<E: EnterBootloaderTrait, P: PersistencyTrait> {
     enter_bootloader: E,
     persistency: P,
 }
 
-impl<E: EnterBootloader, P: Persistency> Parser<E, P> {
+impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
     pub fn new(enter_bootloader: E, persistency: P) -> Self {
         Self {
             enter_bootloader,

@@ -24,7 +24,7 @@ mod tasks;
 mod drivers;
 
 use crate::tasks::button_task;
-use crate::tasks::echo_task;
+use crate::tasks::terminal_task;
 use crate::drivers::usb_communication::UsbCommunication;
 
 bind_interrupts!(struct Pio1Irqs {
@@ -52,7 +52,7 @@ async fn main(spawner: Spawner) {
     let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
     spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender_mutexed)).unwrap();
 
-    spawner.spawn(echo_task::run(peripherals.FLASH, peripherals.DMA_CH0, usb_receiver, usb_sender_mutexed)).unwrap();
+    spawner.spawn(terminal_task::run(peripherals.FLASH, peripherals.DMA_CH0, usb_receiver, usb_sender_mutexed)).unwrap();
 
     // let wifi_hw = WifiHw {
     //     pin_23: peripherals.PIN_23,
@@ -63,6 +63,7 @@ async fn main(spawner: Spawner) {
     //     dma_ch1: peripherals.DMA_CH1,
     // };
     //spawner.spawn(mqtt(spawner, wifi_hw)).unwrap();
+    // spawner.spawn(mqtt_task::run()).unwrap();
 
     usb_communication.usb.run().await;
 }

@@ -14,8 +14,14 @@
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
-pub trait EnterBootloader {
+pub trait EnterBootloaderTrait {
     fn call(&mut self);
+}
+
+#[cfg_attr(test, automock)]
+pub trait PersistencyTrait {
+    fn store(&mut self, value: &[u8], field: ValueId);
+    fn read(&mut self, field: ValueId) -> &[u8];
 }
 
 #[derive(Debug, PartialEq)]
@@ -27,18 +33,12 @@ pub enum ValueId {
     MqttBrokerPassword,
 }
 
-#[cfg_attr(test, automock)]
-pub trait Persistency {
-    fn store(&mut self, value: &[u8], field: ValueId);
-    fn read(&mut self, field: ValueId) -> &[u8];
-}
-
-pub struct Parser<E: EnterBootloader, P: Persistency> {
+pub struct Parser<E: EnterBootloaderTrait, P: PersistencyTrait> {
     enter_bootloader: E,
     persistency: P,
 }
 
-impl<E: EnterBootloader, P: Persistency> Parser<E, P> {
+impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
     pub fn new(enter_bootloader: E, persistency: P) -> Self {
         Self {
             enter_bootloader,
@@ -131,7 +131,7 @@ mod tests {
     #[test]
     fn test_enter_bootloader() {
         //let mut mock_send_message = MockSendMessage::new();
-        let mut mock_enter_bootloader = MockEnterBootloader::new();
+        let mut mock_enter_bootloader = MockEnterBootloaderTrait::new();
 
         // mock_send_message.expect_call()
         //     .with(eq(b"entering bootloader now\n" as &[u8]))
@@ -145,7 +145,7 @@ mod tests {
         let mut parser = Parser::new(
             //mock_send_message,
             mock_enter_bootloader,
-            MockPersistency::new(),
+            MockPersistencyTrait::new(),
         );
 
         let answer = parser.parse_message(b"enter bootloader");
@@ -155,8 +155,8 @@ mod tests {
     #[test]
     fn test_ping_pong() {
         let mut parser = Parser::new(
-            MockEnterBootloader::new(),
-            MockPersistency::new(),
+            MockEnterBootloaderTrait::new(),
+            MockPersistencyTrait::new(),
         );
 
         let answer = parser.parse_message(b"ping");
@@ -174,7 +174,7 @@ mod tests {
         ];
 
         for (command, value, field) in commands {
-            let mut mock_persistency = MockPersistency::new();
+            let mut mock_persistency = MockPersistencyTrait::new();
 
             mock_persistency.expect_store()
                 .with(eq(value), eq(field))
@@ -182,7 +182,7 @@ mod tests {
                 .returning(|_, _| ());
 
             let mut parser = Parser::new(
-                MockEnterBootloader::new(),
+                MockEnterBootloaderTrait::new(),
                 mock_persistency,
             );
 
@@ -208,7 +208,7 @@ mod tests {
     //     ];
 
     //     for (command, value, field) in commands {
-    //         let mut mock_persistency = MockPersistency::new();
+    //         let mut mock_persistency = MockPersistencyTrait::new();
 
     //         mock_persistency.expect_read()
     //             .with(eq(field))
@@ -216,7 +216,7 @@ mod tests {
     //             .returning(|_| value); //TODO: for any reason returning is not found here. Don't know why.
 
     //         let mut parser = Parser::new(
-    //             MockEnterBootloader::new(),
+    //             MockEnterBootloaderTrait::new(),
     //             mock_persistency,
     //         );
 
@@ -232,8 +232,8 @@ mod tests {
     #[test]
     fn test_nothing_to_parse() {
         let mut parser = Parser::new(
-            MockEnterBootloader::new(),
-            MockPersistency::new(),
+            MockEnterBootloaderTrait::new(),
+            MockPersistencyTrait::new(),
         );
 
         let answer = parser.parse_message(b"no command");

@@ -4,6 +4,7 @@
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 use core::cmp::min;
+use app::parser;
 
 struct Value {
     wifi_ssid: [u8; 32],
@@ -94,5 +95,37 @@ impl Persistency {
 
         self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory");
         self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to write flash memory");
+    }
+}
+
+pub struct ParserToPersistency {
+    persistency: Persistency,
+}
+impl ParserToPersistency {
+    pub fn new(flash: FLASH, dma_ch0: DMA_CH0) -> Self {
+        Self {
+            persistency: Persistency::new(flash, dma_ch0),
+        }
+    }
+}
+impl parser::PersistencyTrait for ParserToPersistency {
+    fn store(&mut self, value: &[u8], value_id: parser::ValueId) {
+        match value_id {
+            parser::ValueId::WifiSsid           => self.persistency.store(value, ValueId::WifiSsid),
+            parser::ValueId::WifiPassword       => self.persistency.store(value, ValueId::WifiPassword),
+            parser::ValueId::MqttHostIp         => self.persistency.store(value, ValueId::MqttHostIp),
+            parser::ValueId::MqttBrokerUsername => self.persistency.store(value, ValueId::MqttBrokerUsername),
+            parser::ValueId::MqttBrokerPassword => self.persistency.store(value, ValueId::MqttBrokerPassword),
+        }
+    }
+
+    fn read(&mut self, value_id: parser::ValueId) -> &[u8] {
+        match value_id {
+            parser::ValueId::WifiSsid           => self.persistency.read(ValueId::WifiSsid),
+            parser::ValueId::WifiPassword       => self.persistency.read(ValueId::WifiPassword),
+            parser::ValueId::MqttHostIp         => self.persistency.read(ValueId::MqttHostIp),
+            parser::ValueId::MqttBrokerUsername => self.persistency.read(ValueId::MqttBrokerUsername),
+            parser::ValueId::MqttBrokerPassword => self.persistency.read(ValueId::MqttBrokerPassword),
+        }
     }
 }

@@ -10,6 +10,8 @@
 //!
 //!    @enduml
 
+use core::future::Future;
+
 #[cfg(test)]
 use mockall::automock;
 
@@ -19,9 +21,9 @@ pub trait EnterBootloaderTrait {
 }
 
 #[cfg_attr(test, automock)]
-pub trait PersistencyTrait {
-    fn store(&mut self, value: &[u8], field: ValueId);
-    fn read(&mut self, field: ValueId) -> &[u8];
+pub trait PersistencyTrait{
+    fn store<'a>(&'a mut self, value: &'a [u8], field: ValueId) -> impl Future<Output = ()> + 'a;
+    fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = ()> + 'a;
 }
 
 #[derive(Debug, PartialEq)]
@@ -46,7 +48,7 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
         }
     }
 
-    fn parse_store_command(&mut self, parameters: &[u8]) {
+    async fn parse_store_command(&mut self, parameters: &[u8]) {
         const WIFI_SSID: &[u8] = b"wifi_ssid ";
         const WIFI_PASSWORD: &[u8] = b"wifi_password ";
         const MQTT_HOST_IP: &[u8] = b"mqtt_host_ip ";
@@ -55,69 +57,73 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
 
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
-            self.persistency.store(value, ValueId::WifiSsid);
+            self.persistency.store(value, ValueId::WifiSsid).await;
         }
         else if parameters.starts_with(WIFI_PASSWORD) {
             let value = &parameters[WIFI_PASSWORD.len()..];
-            self.persistency.store(value, ValueId::WifiPassword);
+            self.persistency.store(value, ValueId::WifiPassword).await;
         }
         else if parameters.starts_with(MQTT_HOST_IP) {
             let value = &parameters[MQTT_HOST_IP.len()..];
-            self.persistency.store(value, ValueId::MqttHostIp);
+            self.persistency.store(value, ValueId::MqttHostIp).await;
         }
         else if parameters.starts_with(MQTT_BROKER_USERNAME) {
             let value = &parameters[MQTT_BROKER_USERNAME.len()..];
-            self.persistency.store(value, ValueId::MqttBrokerUsername);
+            self.persistency.store(value, ValueId::MqttBrokerUsername).await
         }
         else if parameters.starts_with(MQTT_BROKER_PASSWORD) {
             let value = &parameters[MQTT_BROKER_PASSWORD.len()..];
-            self.persistency.store(value, ValueId::MqttBrokerPassword);
+            self.persistency.store(value, ValueId::MqttBrokerPassword).await;
         }
         else {
             panic!("unknown parameter");
         }
     }
 
-    fn parse_read_command(&mut self, parameters: &[u8]) -> &[u8]{
+    async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8; 32]) {
         if parameters.starts_with(b"wifi_ssid") {
-            return self.persistency.read(ValueId::WifiSsid);
+            self.persistency.read(ValueId::WifiSsid, answer).await;
         }
         else if parameters.starts_with(b"wifi_password") {
-            return self.persistency.read(ValueId::WifiPassword);
+            self.persistency.read(ValueId::WifiPassword, answer).await;
         }
         else if parameters.starts_with(b"mqtt_host_ip") {
-            return self.persistency.read(ValueId::MqttHostIp);
+            self.persistency.read(ValueId::MqttHostIp, answer).await;
         }
         else if parameters.starts_with(b"mqtt_broker_username") {
-            return self.persistency.read(ValueId::MqttBrokerUsername);
+            self.persistency.read(ValueId::MqttBrokerUsername, answer).await;
         }
         else if parameters.starts_with(b"mqtt_broker_password") {
-            return self.persistency.read(ValueId::MqttBrokerPassword);
+            self.persistency.read(ValueId::MqttBrokerPassword, answer).await;
         }
         else {
             panic!("unknown parameter");
         }
     }
 
-    pub fn parse_message(&mut self, msg: &[u8]) -> &[u8] {
+    fn copy_to_beginning(dest: &mut [u8; 32], src: &[u8]) {
+        let len = src.len().min(32);
+        dest[..len].copy_from_slice(&src[..len]);
+    }
+
+    pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8; 32]) {
         const STORE_COMMAND: &[u8] = b"store ";
         const READ_COMMAND: &[u8] = b"read ";
-
         if msg == b"enter bootloader" {
             self.enter_bootloader.call();
             // Note: probably this message won't be seen, because of immediate restart.
-            b"entering bootloader now\n"
+            Self::copy_to_beginning(answer, b"entering bootloader now");
         } else if msg == b"ping" {
-            b"pong\n"
+            Self::copy_to_beginning(answer, b"pong");
         } else if msg.starts_with(STORE_COMMAND) {
             let parameters = &msg[STORE_COMMAND.len()..];
-            self.parse_store_command(parameters);
-            b""
+            self.parse_store_command(parameters).await;
+            Self::copy_to_beginning(answer, b"");
         } else if msg.starts_with(READ_COMMAND) {
             let parameters = &msg[READ_COMMAND.len()..];
-            self.parse_read_command(parameters)
+            self.parse_read_command(parameters, answer).await;
         } else {
-            b"nothing to parse\n"
+            Self::copy_to_beginning(answer, b"nothing to parse");
         }
     }
 }

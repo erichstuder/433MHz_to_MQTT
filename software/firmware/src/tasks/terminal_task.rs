@@ -1,14 +1,14 @@
 use embassy_executor::task;
-use embassy_rp::peripherals::{FLASH, DMA_CH0};
 
 use app::parser::{self, Parser};
 use crate::drivers::persistency::ParserToPersistency;
 
-use crate::UsbSenderMutex;
+use crate::UsbSenderMutexed;
 use crate::UsbReceiver;
+use crate::PersistencyMutexed;
 
 #[task]
-pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutex) {
+pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutexed) {
     struct EnterBootloader;
     impl parser::EnterBootloaderTrait for EnterBootloader {
         fn call(&mut self) {
@@ -16,7 +16,7 @@ pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, 
         }
     }
 
-    let parser_to_persistency = ParserToPersistency::new(flash, dma_ch0);
+    let parser_to_persistency = ParserToPersistency::new(persistency);
     let mut parser = Parser::new(EnterBootloader, parser_to_persistency);
     let mut buf: [u8; 64] = [0; 64];
 
@@ -29,8 +29,13 @@ pub async fn run(flash: FLASH, dma_ch0: DMA_CH0, mut usb_receiver: UsbReceiver, 
             }
         };
         let data = &buf[..byte_cnt];
+        let mut answer: [u8; 32] = ['\0' as u8; 32];
+        parser.parse_message(data, &mut answer).await;
+        let len = answer.iter().position(|&x| x == b'\0').unwrap_or(answer.len());
+
         let mut sender = usb_sender.lock().await;
-        let answer = parser.parse_message(data);
-        sender.write_packet(answer).await.unwrap();
+
+        sender.write_packet(&answer[..len]).await.unwrap();
+        sender.write_packet("\n".as_bytes()).await.unwrap();
     }
 }

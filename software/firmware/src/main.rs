@@ -25,14 +25,17 @@ mod drivers;
 
 use crate::tasks::button_task;
 use crate::tasks::terminal_task;
+use crate::tasks::mqtt_task;
 use crate::drivers::usb_communication::UsbCommunication;
+use crate::drivers::persistency::Persistency;
 
 bind_interrupts!(struct Pio1Irqs {
     PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
 });
 
-type UsbSenderMutex = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
+type UsbSenderMutexed = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
 type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
+type PersistencyMutexed = Mutex<CriticalSectionRawMutex, Persistency>;
 
 #[main]
 async fn main(spawner: Spawner) {
@@ -42,8 +45,15 @@ async fn main(spawner: Spawner) {
     // Multiple writers to USB, so it is mutexed and made static to be shared between tasks.
     let (usb_sender_mutexed, usb_receiver) = {
         let (usb_sender, usb_receiver) = usb_communication.cdc_acm_class.split();
-        static USB_SENDER: StaticCell<UsbSenderMutex> = StaticCell::new();
+        static USB_SENDER: StaticCell<UsbSenderMutexed> = StaticCell::new();
         (USB_SENDER.init(Mutex::new(usb_sender)), usb_receiver)
+    };
+
+    // Multiple writers to persistency, so it is mutexed and made static to be shared between tasks.
+    let persistency_mutexed = {
+        let persistency = Persistency::new(peripherals.FLASH, peripherals.DMA_CH0);
+        static PERSISTENCY: StaticCell<PersistencyMutexed> = StaticCell::new();
+        PERSISTENCY.init(Mutex::new(persistency))
     };
 
     bind_interrupts!(struct Pio0Irqs {
@@ -52,7 +62,7 @@ async fn main(spawner: Spawner) {
     let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
     spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender_mutexed)).unwrap();
 
-    spawner.spawn(terminal_task::run(peripherals.FLASH, peripherals.DMA_CH0, usb_receiver, usb_sender_mutexed)).unwrap();
+    spawner.spawn(terminal_task::run(persistency_mutexed, usb_receiver, usb_sender_mutexed)).unwrap();
 
     // let wifi_hw = WifiHw {
     //     pin_23: peripherals.PIN_23,
@@ -63,7 +73,7 @@ async fn main(spawner: Spawner) {
     //     dma_ch1: peripherals.DMA_CH1,
     // };
     //spawner.spawn(mqtt(spawner, wifi_hw)).unwrap();
-    // spawner.spawn(mqtt_task::run()).unwrap();
+    spawner.spawn(mqtt_task::run()).unwrap();
 
     usb_communication.usb.run().await;
 }

@@ -3,8 +3,10 @@
 
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
+use core::future::Future;
 use core::cmp::min;
 use app::parser;
+use crate::PersistencyMutexed;
 
 struct Value {
     wifi_ssid: [u8; 32],
@@ -58,16 +60,16 @@ impl Persistency {
         self.value.mqtt_broker_password.copy_from_slice(&data[128..160]);
     }
 
-    pub fn read(&mut self, value_id: ValueId) -> &[u8] {
+    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) {
         self.read_all();
 
         match value_id {
-            ValueId::WifiSsid => &self.value.wifi_ssid,
-            ValueId::WifiPassword => &self.value.wifi_password,
-            ValueId::MqttHostIp => &self.value.mqtt_host_ip,
-            ValueId::MqttBrokerUsername => &self.value.mqtt_broker_username,
-            ValueId::MqttBrokerPassword => &self.value.mqtt_broker_password,
-        }
+            ValueId::WifiSsid           => answer.copy_from_slice(&self.value.wifi_ssid),
+            ValueId::WifiPassword       => answer.copy_from_slice(&self.value.wifi_password),
+            ValueId::MqttHostIp         => answer.copy_from_slice(&self.value.mqtt_host_ip),
+            ValueId::MqttBrokerUsername => answer.copy_from_slice(&self.value.mqtt_broker_username),
+            ValueId::MqttBrokerPassword => answer.copy_from_slice(&self.value.mqtt_broker_password),
+        };
     }
 
     pub fn store(&mut self, value: &[u8], value_id: ValueId) {
@@ -79,9 +81,9 @@ impl Persistency {
 
         self.read_all();
         match value_id {
-            ValueId::WifiSsid => copy_value_to_field(value, &mut self.value.wifi_ssid),
-            ValueId::WifiPassword => copy_value_to_field(value, &mut self.value.wifi_password),
-            ValueId::MqttHostIp => copy_value_to_field(value, &mut self.value.mqtt_host_ip),
+            ValueId::WifiSsid           => copy_value_to_field(value, &mut self.value.wifi_ssid),
+            ValueId::WifiPassword       => copy_value_to_field(value, &mut self.value.wifi_password),
+            ValueId::MqttHostIp         => copy_value_to_field(value, &mut self.value.mqtt_host_ip),
             ValueId::MqttBrokerUsername => copy_value_to_field(value, &mut self.value.mqtt_broker_username),
             ValueId::MqttBrokerPassword => copy_value_to_field(value, &mut self.value.mqtt_broker_password),
         }
@@ -99,33 +101,39 @@ impl Persistency {
 }
 
 pub struct ParserToPersistency {
-    persistency: Persistency,
+    persistency_mutexed: &'static PersistencyMutexed,
 }
 impl ParserToPersistency {
-    pub fn new(flash: FLASH, dma_ch0: DMA_CH0) -> Self {
+    pub fn new(persistency_mutexed: &'static PersistencyMutexed) -> Self {
         Self {
-            persistency: Persistency::new(flash, dma_ch0),
+            persistency_mutexed: persistency_mutexed,
         }
     }
 }
 impl parser::PersistencyTrait for ParserToPersistency {
-    fn store(&mut self, value: &[u8], value_id: parser::ValueId) {
-        match value_id {
-            parser::ValueId::WifiSsid           => self.persistency.store(value, ValueId::WifiSsid),
-            parser::ValueId::WifiPassword       => self.persistency.store(value, ValueId::WifiPassword),
-            parser::ValueId::MqttHostIp         => self.persistency.store(value, ValueId::MqttHostIp),
-            parser::ValueId::MqttBrokerUsername => self.persistency.store(value, ValueId::MqttBrokerUsername),
-            parser::ValueId::MqttBrokerPassword => self.persistency.store(value, ValueId::MqttBrokerPassword),
+    fn store<'a>(&'a mut self, value: &'a [u8], value_id: parser::ValueId) -> impl Future<Output = ()> + 'a {
+        async move {
+            let mut persistency = self.persistency_mutexed.lock().await;
+            match value_id {
+                parser::ValueId::WifiSsid           => persistency.store(value, ValueId::WifiSsid),
+                parser::ValueId::WifiPassword       => persistency.store(value, ValueId::WifiPassword),
+                parser::ValueId::MqttHostIp         => persistency.store(value, ValueId::MqttHostIp),
+                parser::ValueId::MqttBrokerUsername => persistency.store(value, ValueId::MqttBrokerUsername),
+                parser::ValueId::MqttBrokerPassword => persistency.store(value, ValueId::MqttBrokerPassword),
+            }
         }
     }
 
-    fn read(&mut self, value_id: parser::ValueId) -> &[u8] {
-        match value_id {
-            parser::ValueId::WifiSsid           => self.persistency.read(ValueId::WifiSsid),
-            parser::ValueId::WifiPassword       => self.persistency.read(ValueId::WifiPassword),
-            parser::ValueId::MqttHostIp         => self.persistency.read(ValueId::MqttHostIp),
-            parser::ValueId::MqttBrokerUsername => self.persistency.read(ValueId::MqttBrokerUsername),
-            parser::ValueId::MqttBrokerPassword => self.persistency.read(ValueId::MqttBrokerPassword),
+    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = ()> + 'a {
+        async move {
+            let mut persistency = self.persistency_mutexed.lock().await;
+            match value_id {
+                parser::ValueId::WifiSsid           => persistency.read(ValueId::WifiSsid, answer),
+                parser::ValueId::WifiPassword       => persistency.read(ValueId::WifiPassword, answer),
+                parser::ValueId::MqttHostIp         => persistency.read(ValueId::MqttHostIp, answer),
+                parser::ValueId::MqttBrokerUsername => persistency.read(ValueId::MqttBrokerUsername, answer),
+                parser::ValueId::MqttBrokerPassword => persistency.read(ValueId::MqttBrokerPassword, answer),
+            };
         }
     }
 }

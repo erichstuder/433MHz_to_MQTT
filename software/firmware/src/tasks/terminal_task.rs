@@ -30,12 +30,11 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: Usb
         };
         let data = &buf[..byte_cnt];
         let mut answer: [u8; 32] = ['\0' as u8; 32];
-        parser.parse_message(data, &mut answer).await;
-        let len = answer.iter().position(|&x| x == b'\0').unwrap_or(answer.len());
+        let length = parser.parse_message(data, &mut answer).await.unwrap();
 
         let mut sender = usb_sender.lock().await;
 
-        sender.write_packet(&answer[..len]).await.unwrap();
+        sender.write_packet(&answer[..length]).await.unwrap();
         sender.write_packet("\n".as_bytes()).await.unwrap();
     }
 }

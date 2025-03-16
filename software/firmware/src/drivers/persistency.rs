@@ -60,7 +60,7 @@ impl Persistency {
         self.value.mqtt_broker_password.copy_from_slice(&data[128..160]);
     }
 
-    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) {
+    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) -> Option<usize> {
         self.read_all();
 
         match value_id {
@@ -70,6 +70,12 @@ impl Persistency {
             ValueId::MqttBrokerUsername => answer.copy_from_slice(&self.value.mqtt_broker_username),
             ValueId::MqttBrokerPassword => answer.copy_from_slice(&self.value.mqtt_broker_password),
         };
+        for (index, &byte) in answer.iter().enumerate() {
+            if byte == '\0' as u8 {
+                return Some(index);
+            }
+        }
+        None
     }
 
     pub fn store(&mut self, value: &[u8], value_id: ValueId) {
@@ -124,7 +130,7 @@ impl parser::PersistencyTrait for ParserToPersistency {
         }
     }
 
-    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = ()> + 'a {
+    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Option<usize>> + 'a {
         async move {
             let mut persistency = self.persistency_mutexed.lock().await;
             match value_id {
@@ -133,7 +139,7 @@ impl parser::PersistencyTrait for ParserToPersistency {
                 parser::ValueId::MqttHostIp         => persistency.read(ValueId::MqttHostIp, answer),
                 parser::ValueId::MqttBrokerUsername => persistency.read(ValueId::MqttBrokerUsername, answer),
                 parser::ValueId::MqttBrokerPassword => persistency.read(ValueId::MqttBrokerPassword, answer),
-            };
+            }
         }
     }
 }

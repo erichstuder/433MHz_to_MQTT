@@ -25,13 +25,9 @@ mod drivers;
 
 use crate::tasks::button_task;
 use crate::tasks::terminal_task;
-use crate::tasks::mqtt_task;
+use crate::tasks::mqtt_task::{self, WifiHw};
 use crate::drivers::usb_communication::UsbCommunication;
 use crate::drivers::persistency::Persistency;
-
-bind_interrupts!(struct Pio1Irqs {
-    PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
-});
 
 type UsbSenderMutexed = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
 type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
@@ -64,16 +60,19 @@ async fn main(spawner: Spawner) {
 
     spawner.spawn(terminal_task::run(persistency_mutexed, usb_receiver, usb_sender_mutexed)).unwrap();
 
-    // let wifi_hw = WifiHw {
-    //     pin_23: peripherals.PIN_23,
-    //     pin_24: peripherals.PIN_24,
-    //     pin_25: peripherals.PIN_25,
-    //     pin_29: peripherals.PIN_29,
-    //     pio_1: peripherals.PIO1,
-    //     dma_ch1: peripherals.DMA_CH1,
-    // };
-    //spawner.spawn(mqtt(spawner, wifi_hw)).unwrap();
-    spawner.spawn(mqtt_task::run()).unwrap();
+    bind_interrupts!(struct Pio1Irqs {
+        PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
+    });
+    let pio = Pio::new(peripherals.PIO1, Pio1Irqs);
+    let wifi_hw = WifiHw {
+        pin_23: peripherals.PIN_23,
+        pin_24: peripherals.PIN_24,
+        pin_25: peripherals.PIN_25,
+        pin_29: peripherals.PIN_29,
+        pio_1: pio,
+        dma_ch1: peripherals.DMA_CH1,
+    };
+    spawner.spawn(mqtt_task::run(persistency_mutexed, wifi_hw, spawner)).unwrap();
 
     usb_communication.usb.run().await;
 }

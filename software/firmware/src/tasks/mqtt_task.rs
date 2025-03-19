@@ -7,6 +7,10 @@ use static_cell::StaticCell;
 use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
 use cyw43::JoinOptions;
 use core::str;
+use embassy_net;
+use embassy_rp::clocks::RoscRng;
+use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
+use embassy_time::Timer;
 
 use crate::drivers::persistency;
 use crate::PersistencyMutexed;
@@ -31,11 +35,19 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
 
     static STATE: StaticCell<cyw43::State> = StaticCell::new();
     let state = STATE.init(cyw43::State::new());
-    let (_net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
     unwrap!(spawner.spawn(cyw43_task(runner))); //TODO: irgenwie wird hier eine andere unwrap funktion verwendet. warum?
 
     control.init(clm).await;
     control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
+
+    let config = embassy_net::Config::dhcpv4(Default::default());
+    let mut rng = RoscRng;
+    let seed = rng.next_u64();
+    static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
+    let (stack, runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
+    unwrap!(spawner.spawn(net_task(runner)));
+
 
     let mut ssid: [u8; 32] = ['\0' as u8; 32];
     let length = persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut ssid).unwrap();
@@ -59,9 +71,20 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
             }
         }
     }
+
+    info!("waiting for DHCP...");
+    while !stack.is_config_up() {
+        Timer::after_millis(100).await;
+    }
+    info!("DHCP is now up!");
 }
 
-#[embassy_executor::task]
+#[task]
 async fn cyw43_task(runner: cyw43::Runner<'static, gpio::Output<'static>, cyw43_pio::PioSpi<'static, PIO1, 0, DMA_CH1>>) -> ! {
+    runner.run().await
+}
+
+#[task]
+async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
     runner.run().await
 }

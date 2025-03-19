@@ -12,7 +12,7 @@
 use {defmt_rtt as _, panic_probe as _};
 use embassy_rp::{gpio, pio};
 use embassy_rp::pio::PioPin;
-use pio_proc::pio_asm;
+use embassy_rp::pio::program::pio_asm;
 use fixed::traits::ToFixed;
 
 use app::buttons::Buttons;

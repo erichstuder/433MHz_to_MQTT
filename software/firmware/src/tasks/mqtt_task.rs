@@ -72,7 +72,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
 
     let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
     let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username).unwrap();
-    let mqtt_broker_username = &mqtt_broker_username[..length];
+    let mqtt_broker_username = &mqtt_broker_username[..length-1]; //TODO: This -1 is just a dirty hack for the moment!!!
 
     let mut mqtt_broker_password: [u8; 32] = ['\0' as u8; 32];
     let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password).unwrap();
@@ -144,6 +144,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
         match client.connect_to_broker().await {
             Ok(()) => {
                 info!("Connected to broker 555");
+                break;
             }
             Err(mqtt_error) => match mqtt_error {
                 rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => {
@@ -156,6 +157,9 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
         }
         Timer::after(Duration::from_millis(2000)).await;
     }
+
+    client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await.unwrap();
+    info!("message sent");
 
 
 

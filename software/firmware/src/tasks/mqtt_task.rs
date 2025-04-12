@@ -1,4 +1,4 @@
-use defmt::{unwrap, info};
+use defmt::{unwrap, info, error};
 use embassy_executor::{task, Spawner};
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
@@ -6,11 +6,21 @@ use embassy_rp::gpio;
 use static_cell::StaticCell;
 use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
 use cyw43::JoinOptions;
+use core::net::Ipv4Addr;
 use core::str;
 use embassy_net;
 use embassy_rp::clocks::RoscRng;
 use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
-use embassy_time::Timer;
+//use minimq::{ConfigBuilder, Minimq, Publication};
+// use minimq::Minimq;
+// use embedded_nal_async;
+// use embedded_nal_async;
+use rust_mqtt::client::client::MqttClient;
+// use embassy_net:
+use embassy_time::{Duration, Timer};
+
+// use minimq::embedded_nal::
+// use embedded_nal_async;
 
 use crate::drivers::persistency;
 use crate::PersistencyMutexed;
@@ -48,20 +58,31 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     let (stack, runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
     unwrap!(spawner.spawn(net_task(runner)));
 
+    let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
+    let length = persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid).unwrap();
+    let wifi_ssid = str::from_utf8(&wifi_ssid[..length]).unwrap();
 
-    let mut ssid: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut ssid).unwrap();
-    let ssid = str::from_utf8(&ssid[..length]).unwrap();
+    let mut wifi_password: [u8; 32] = ['\0' as u8; 32];
+    let length = persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password).unwrap();
+    let wifi_password = &wifi_password[..length];
 
-    let mut password: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut password).unwrap();
-    let password = &password[..length];
+    let mut mqtt_host_ip: [u8; 32] = ['\0' as u8; 32];
+    let length = persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip).unwrap();
+    let _mqtt_host_ip = &mqtt_host_ip[..length];
 
-    info!("ssid: {:?}", ssid);
-    info!("password: {:?}", str::from_utf8(password).unwrap());
+    let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
+    let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username).unwrap();
+    let mqtt_broker_username = &mqtt_broker_username[..length-1]; //TODO: This -1 is just a dirty hack for the moment!!!
+
+    let mut mqtt_broker_password: [u8; 32] = ['\0' as u8; 32];
+    let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password).unwrap();
+    let _mqtt_broker_password = &mqtt_broker_password[..length];
+
+    info!("ssid: {:?}", wifi_ssid);
+    info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
 
     loop {
-        match control.join(ssid, JoinOptions::new(password)).await {
+        match control.join(wifi_ssid, JoinOptions::new(wifi_password)).await {
             Ok(_) => {
                 info!("join successful");
                 break
@@ -77,6 +98,80 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
         Timer::after_millis(100).await;
     }
     info!("DHCP is now up!");
+
+
+    //mqtt
+
+    // broker: 192.168.1.105
+    let address = Ipv4Addr::new(192, 168, 1, 105);
+    let remote_endpoint = (address, 1883);
+
+
+    let mut rx_buffer = [0; 4096];
+    let mut tx_buffer = [0; 4096];
+    let mut socket = embassy_net::tcp::TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
+    socket.set_timeout(Some(embassy_time::Duration::from_secs(100))); //was 10
+    let mut recv_buffer = [0; 150]; //was 80
+    let mut write_buffer = [0; 150]; //was 80
+
+    let connection = socket.connect(remote_endpoint).await;
+    if let Err(e) = connection {
+        error!("connect error: {:?}", e);
+    }
+    info!("connected to broker!");
+
+    let mut config = rust_mqtt::client::client_config::ClientConfig::new(
+        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+        rust_mqtt::utils::rng_generator::CountingRng(20000),
+    );
+    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+    config.add_client_id("433MHz_to_MQTT");
+    config.add_username(str::from_utf8(mqtt_broker_username).unwrap());
+    config.add_password("myPassword");
+    config.max_packet_size = 150; //was 100
+
+
+    let mut client = MqttClient::<_, 5, _>::new(  //was 5
+        socket,
+        &mut write_buffer,
+        150,
+        &mut recv_buffer,
+        150,
+        config,
+    );
+
+    loop {
+        match client.connect_to_broker().await {
+            Ok(()) => {
+                info!("Connected to broker 555");
+                break;
+            }
+            Err(mqtt_error) => match mqtt_error {
+                rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => {
+                    error!("MQTT Network Error");
+                }
+                _ => {
+                    error!("Other MQTT Error: {:?}", mqtt_error);
+                }
+            },
+        }
+        Timer::after(Duration::from_millis(2000)).await;
+    }
+
+    client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await.unwrap();
+    info!("message sent");
+
+
+
+
+
+    // minimq::embedded_nal::TcpClientStack::
+    // let mut mqtt: Minimq<'_, _, _, minimq::broker::IpBroker> = Minimq::new(
+    //     stack,
+    //     embedded-time::Clock::default(),
+    //     ConfigBuilder::new(localhost.into(), &mut buffer).client_id("test").unwrap(),
+    // );
+
 }
 
 #[task]

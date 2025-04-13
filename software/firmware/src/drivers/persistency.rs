@@ -79,10 +79,10 @@ impl Persistency {
                 return &self.values[n];
             }
         }
-        panic!("value id not found");
+        panic!("value not found");
     }
 
-    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) -> Result<usize, &'static str> {
+    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8]) -> Result<usize, &'static str> {
         self.read_all();
 
         let value = self.get_value(value_id);

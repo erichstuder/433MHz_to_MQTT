@@ -23,7 +23,7 @@ pub trait EnterBootloaderTrait {
 // #[cfg_attr(test, automock)]
 pub trait PersistencyTrait{
     fn store<'a>(&'a mut self, value: &'a [u8], field: ValueId) -> impl Future<Output = ()> + 'a;
-    fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Result<usize, &'static str>> + 'a;
+    fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a;
 }
 
 #[derive(Debug, PartialEq)]
@@ -48,7 +48,7 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
         }
     }
 
-    async fn parse_store_command(&mut self, parameters: &[u8]) {
+    async fn parse_store_command(&mut self, parameters: &[u8]) -> Result<(), &'static str> {
         const WIFI_SSID: &[u8] = b"wifi_ssid ";
         const WIFI_PASSWORD: &[u8] = b"wifi_password ";
         const MQTT_HOST_IP: &[u8] = b"mqtt_host_ip ";
@@ -58,29 +58,34 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
             self.persistency.store(value, ValueId::WifiSsid).await;
+            Ok(())
         }
         else if parameters.starts_with(WIFI_PASSWORD) {
             let value = &parameters[WIFI_PASSWORD.len()..];
             self.persistency.store(value, ValueId::WifiPassword).await;
+            Ok(())
         }
         else if parameters.starts_with(MQTT_HOST_IP) {
             let value = &parameters[MQTT_HOST_IP.len()..];
             self.persistency.store(value, ValueId::MqttHostIp).await;
+            Ok(())
         }
         else if parameters.starts_with(MQTT_BROKER_USERNAME) {
             let value = &parameters[MQTT_BROKER_USERNAME.len()..];
-            self.persistency.store(value, ValueId::MqttBrokerUsername).await
+            self.persistency.store(value, ValueId::MqttBrokerUsername).await;
+            Ok(())
         }
         else if parameters.starts_with(MQTT_BROKER_PASSWORD) {
             let value = &parameters[MQTT_BROKER_PASSWORD.len()..];
             self.persistency.store(value, ValueId::MqttBrokerPassword).await;
+            Ok(())
         }
         else {
-            panic!("unknown parameter");
+            Err("unknown store parameter")
         }
     }
 
-    async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8; 32]) -> Result<usize, &'static str> {
+    async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8]) -> Result<usize, &'static str> {
         if parameters.starts_with(b"wifi_ssid") {
             self.persistency.read(ValueId::WifiSsid, answer).await
         }
@@ -97,17 +102,17 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
             self.persistency.read(ValueId::MqttBrokerPassword, answer).await
         }
         else {
-            Err("unknown parameter")
+            Err("unknown read parameter")
         }
     }
 
-    fn copy_to_beginning(dest: &mut [u8; 32], src: &[u8]) -> usize {
-        let len = src.len().min(32);
+    fn copy_to_beginning(dest: &mut [u8], src: &[u8]) -> usize {
+        let len = src.len().min(dest.len());
         dest[..len].copy_from_slice(&src[..len]);
         len
     }
 
-    pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8; 32]) -> Result<usize, &'static str> {
+    pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8]) -> Result<usize, &'static str> {
         const STORE_COMMAND: &[u8] = b"store ";
         const READ_COMMAND: &[u8] = b"read ";
         if msg == b"enter bootloader" {
@@ -118,8 +123,10 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
             Ok(Self::copy_to_beginning(answer, b"pong"))
         } else if msg.starts_with(STORE_COMMAND) {
             let parameters = &msg[STORE_COMMAND.len()..];
-            self.parse_store_command(parameters).await;
-            Ok(0)
+            match self.parse_store_command(parameters).await {
+                Ok(_) => Ok(0),
+                Err(e) => Err(e),
+            }
         } else if msg.starts_with(READ_COMMAND) {
             let parameters = &msg[READ_COMMAND.len()..];
             self.parse_read_command(parameters, answer).await

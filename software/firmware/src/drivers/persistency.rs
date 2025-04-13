@@ -168,7 +168,7 @@ impl parser::PersistencyTrait for ParserToPersistency {
         }
     }
 
-    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Result<usize, &'static str>> + 'a {
+    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a {
         async move {
             let mut persistency = self.persistency_mutexed.lock().await;
             match value_id {

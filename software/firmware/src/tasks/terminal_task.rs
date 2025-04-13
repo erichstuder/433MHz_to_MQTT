@@ -18,7 +18,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: Usb
 
     let parser_to_persistency = ParserToPersistency::new(persistency);
     let mut parser = Parser::new(EnterBootloader, parser_to_persistency);
-    let mut buf: [u8; 64] = [0; 64];
+    let mut buf = [0u8; 64];
 
     loop {
         usb_receiver.wait_connection().await;
@@ -29,7 +29,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: Usb
             }
         };
         let data = &buf[..byte_cnt];
-        let mut answer: [u8; 32] = ['\0' as u8; 32];
+        let mut answer = [0u8; 100];
 
         //TODO: remove code duplication
         match parser.parse_message(data, &mut answer).await {

@@ -23,7 +23,7 @@ pub trait EnterBootloaderTrait {
 // #[cfg_attr(test, automock)]
 pub trait PersistencyTrait{
     fn store<'a>(&'a mut self, value: &'a [u8], field: ValueId) -> impl Future<Output = ()> + 'a;
-    fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Option<usize>> + 'a;
+    fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Result<usize, &'static str>> + 'a;
 }
 
 #[derive(Debug, PartialEq)]
@@ -80,7 +80,7 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
         }
     }
 
-    async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8; 32]) -> Option<usize> {
+    async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8; 32]) -> Result<usize, &'static str> {
         if parameters.starts_with(b"wifi_ssid") {
             self.persistency.read(ValueId::WifiSsid, answer).await
         }
@@ -97,34 +97,34 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
             self.persistency.read(ValueId::MqttBrokerPassword, answer).await
         }
         else {
-            panic!("unknown parameter");
+            Err("unknown parameter")
         }
     }
 
-    fn copy_to_beginning(dest: &mut [u8; 32], src: &[u8]) -> Option<usize> {
+    fn copy_to_beginning(dest: &mut [u8; 32], src: &[u8]) -> usize {
         let len = src.len().min(32);
         dest[..len].copy_from_slice(&src[..len]);
-        return Some(len)
+        len
     }
 
-    pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8; 32]) -> Option<usize> {
+    pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8; 32]) -> Result<usize, &'static str> {
         const STORE_COMMAND: &[u8] = b"store ";
         const READ_COMMAND: &[u8] = b"read ";
         if msg == b"enter bootloader" {
             self.enter_bootloader.call();
             // Note: probably this message won't be seen, because of immediate restart.
-            Self::copy_to_beginning(answer, b"entering bootloader now")
+            Ok(Self::copy_to_beginning(answer, b"entering bootloader now"))
         } else if msg == b"ping" {
-            Self::copy_to_beginning(answer, b"pong")
+            Ok(Self::copy_to_beginning(answer, b"pong"))
         } else if msg.starts_with(STORE_COMMAND) {
             let parameters = &msg[STORE_COMMAND.len()..];
             self.parse_store_command(parameters).await;
-            Some(0)
+            Ok(0)
         } else if msg.starts_with(READ_COMMAND) {
             let parameters = &msg[READ_COMMAND.len()..];
             self.parse_read_command(parameters, answer).await
         } else {
-            Self::copy_to_beginning(answer, b"nothing to parse")
+            Ok(Self::copy_to_beginning(answer, b"nothing to parse"))
         }
     }
 }

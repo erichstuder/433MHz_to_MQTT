@@ -10,6 +10,7 @@ use crate::PersistencyMutexed;
 struct Value {
     id: ValueId,
     length: u8,
+    index: usize,
 }
 
 impl Value {
@@ -17,6 +18,7 @@ impl Value {
         Self {
             id,
             length: 0,
+            index: 0,
         }
     }
 }
@@ -34,11 +36,11 @@ pub enum ValueId {
 const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
 const DATA_SIZE: usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
 const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - flash::ERASE_SIZE; // put data at the end of flash memory.
-const FILE_DESCRIPTOR_SIZE: usize = 8;
+const FILE_DESCRIPTOR_SIZE: usize = 5;
 
 pub struct Persistency {
     flash: Flash<'static, FLASH, flash::Async, FLASH_SIZE>,
-    values: [Value; 5],
+    values: [Value; FILE_DESCRIPTOR_SIZE],
     data: [u8; DATA_SIZE],
 }
 
@@ -58,52 +60,41 @@ impl Persistency {
     }
 
     fn read_all(&mut self) {
-        self.flash.blocking_read((DATA_ADDRESS_OFFSET) as u32, &mut self.data).expect("Failed to read flash memory");
+        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut self.data).expect("failed to read flash memory");
 
         for n in 0..self.values.len() {
             self.values[n].length = self.data[n];
+
+            if n == 0 {
+                self.values[n].index = FILE_DESCRIPTOR_SIZE;
+            } else {
+                self.values[n].index = self.values[n-1].index + self.values[n-1].length as usize;
+            }
         }
     }
 
-    fn first_index(&self, value_id: &ValueId) -> usize {
-        let mut index: usize = FILE_DESCRIPTOR_SIZE;
-        for n in 0..self.values.len() {
-            if n > 0 {
-                index += self.values[n-1].length as usize;
-            }
-
-            if &self.values[n].id == value_id {
-                return index;
-            }
-
-            //TODO: are there risk for overflow or other issues here?
-        }
-        panic!("ValueId not found");
-    }
-
-    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) -> Option<usize> {
-        self.read_all();
-
-        let mut length: Option<usize> = None;
-        let mut index: Option<usize> = None;
+    fn get_value(&self, value_id: ValueId) -> &Value {
         for n in 0..self.values.len() {
             if self.values[n].id == value_id {
-                length = Some(self.values[n].length as usize);
-                index = Some(self.first_index(&self.values[n].id));
-                break;
+                return &self.values[n];
             }
         }
-        let length = length.expect("length not found");
-        let index = index.expect("index not found");
+        panic!("value id not found");
+    }
 
+    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) -> Result<usize, &'static str> {
+        self.read_all();
+
+        let value = self.get_value(value_id);
+        let length = value.length as usize;
+        let index = value.index;
 
         if length > answer.len(){
-            //None
-            Some(0) //TODO: this should probably be an error.
+            Err("answer buffer too small")
         }
         else {
             answer[..length].copy_from_slice(&self.data[index..(index + length)]);
-            Some(length)
+            Ok(length)
         }
     }
 
@@ -112,7 +103,7 @@ impl Persistency {
             return;
         }
 
-        let index = self.first_index(&self.values[position].id);
+        let index = self.values[position].index;
 
         if new_length > self.values[position].length {
             let offset = (new_length - self.values[position].length) as usize;
@@ -144,7 +135,7 @@ impl Persistency {
 
         self.shift_and_set_to_new_length(position, new_length);
 
-        let index = self.first_index(&self.values[position].id); //TODO: irgendwie Code Duplikation, siehe oben.
+        let index = self.values[position].index;
 
         self.data[index..index+value.len()].copy_from_slice(value);
 
@@ -177,7 +168,7 @@ impl parser::PersistencyTrait for ParserToPersistency {
         }
     }
 
-    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Option<usize>> + 'a {
+    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Result<usize, &'static str>> + 'a {
         async move {
             let mut persistency = self.persistency_mutexed.lock().await;
             match value_id {

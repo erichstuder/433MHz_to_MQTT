@@ -59,23 +59,53 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     unwrap!(spawner.spawn(net_task(runner)));
 
     let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read Wifi SSID: {:?}", e);
+            return;
+        }
+    };
     let wifi_ssid = str::from_utf8(&wifi_ssid[..length]).unwrap();
 
     let mut wifi_password: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read Wifi Password: {:?}", e);
+            return;
+        }
+    };
     let wifi_password = &wifi_password[..length];
 
     let mut mqtt_host_ip: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read MQTT Host IP: {:?}", e);
+            return;
+        }
+    };
     let _mqtt_host_ip = &mqtt_host_ip[..length];
 
     let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read MQTT Broker Username: {:?}", e);
+            return;
+        }
+    };
     let mqtt_broker_username = &mqtt_broker_username[..length];
 
     let mut mqtt_broker_password: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read MQTT Broker Password: {:?}", e);
+            return;
+        }
+    };
     let _mqtt_broker_password = &mqtt_broker_password[..length];
 
     info!("ssid: {:?}", wifi_ssid);

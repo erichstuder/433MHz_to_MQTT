@@ -4,18 +4,24 @@
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 use core::future::Future;
-use core::cmp::min;
 use app::parser;
 use crate::PersistencyMutexed;
 
 struct Value {
-    wifi_ssid: [u8; 32],
-    wifi_password: [u8; 32],
-    mqtt_host_ip: [u8; 32],
-    mqtt_broker_username: [u8; 32],
-    mqtt_broker_password: [u8; 32],
+    id: ValueId,
+    length: u8,
 }
 
+impl Value {
+    fn new(id: ValueId) -> Self {
+        Self {
+            id,
+            length: 0,
+        }
+    }
+}
+
+#[derive(PartialEq)]
 pub enum ValueId {
     WifiSsid,
     WifiPassword,
@@ -26,83 +32,124 @@ pub enum ValueId {
 
 // These values must align with the specifications in memory.x.
 const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
-const DATA_SIZE : usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
+const DATA_SIZE: usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
 const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - flash::ERASE_SIZE; // put data at the end of flash memory.
+const FILE_DESCRIPTOR_SIZE: usize = 8;
 
 pub struct Persistency {
     flash: Flash<'static, FLASH, flash::Async, FLASH_SIZE>,
-    value: Value,
+    values: [Value; 5],
+    data: [u8; DATA_SIZE],
 }
 
 impl Persistency {
     pub fn new(flash: FLASH, dma: DMA_CH0) -> Self {
-        let persistency = Self {
+        Self {
             flash: Flash::new(flash, dma),
-            value: Value {
-                wifi_ssid: [0u8; 32],
-                wifi_password: [0u8; 32],
-                mqtt_host_ip: [0u8; 32],
-                mqtt_broker_username: [0u8; 32],
-                mqtt_broker_password: [0u8; 32],
-            },
-        };
-        persistency
+            values: [
+                Value::new(ValueId::WifiSsid),
+                Value::new(ValueId::WifiPassword),
+                Value::new(ValueId::MqttHostIp),
+                Value::new(ValueId::MqttBrokerUsername),
+                Value::new(ValueId::MqttBrokerPassword),
+            ],
+            data: [0; DATA_SIZE],
+        }
     }
 
     fn read_all(&mut self) {
-        let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
-        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to read flash memory");
+        self.flash.blocking_read((DATA_ADDRESS_OFFSET) as u32, &mut self.data).expect("Failed to read flash memory");
 
-        self.value.wifi_ssid.copy_from_slice(&data[0..32]);
-        self.value.wifi_password.copy_from_slice(&data[32..64]);
-        self.value.mqtt_host_ip.copy_from_slice(&data[64..96]);
-        self.value.mqtt_broker_username.copy_from_slice(&data[96..128]);
-        self.value.mqtt_broker_password.copy_from_slice(&data[128..160]);
+        for n in 0..self.values.len() {
+            self.values[n].length = self.data[n];
+        }
+    }
+
+    fn first_index(&self, value_id: &ValueId) -> usize {
+        let mut index: usize = FILE_DESCRIPTOR_SIZE;
+        for n in 0..self.values.len() {
+            if n > 0 {
+                index += self.values[n-1].length as usize;
+            }
+
+            if &self.values[n].id == value_id {
+                return index;
+            }
+
+            //TODO: are there risk for overflow or other issues here?
+        }
+        panic!("ValueId not found");
     }
 
     pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) -> Option<usize> {
         self.read_all();
 
-        match value_id {
-            ValueId::WifiSsid           => answer.copy_from_slice(&self.value.wifi_ssid),
-            ValueId::WifiPassword       => answer.copy_from_slice(&self.value.wifi_password),
-            ValueId::MqttHostIp         => answer.copy_from_slice(&self.value.mqtt_host_ip),
-            ValueId::MqttBrokerUsername => answer.copy_from_slice(&self.value.mqtt_broker_username),
-            ValueId::MqttBrokerPassword => answer.copy_from_slice(&self.value.mqtt_broker_password),
-        };
-        for (index, &byte) in answer.iter().enumerate() {
-            if byte == '\0' as u8 {
-                return Some(index);
+        let mut length: Option<usize> = None;
+        let mut index: Option<usize> = None;
+        for n in 0..self.values.len() {
+            if self.values[n].id == value_id {
+                length = Some(self.values[n].length as usize);
+                index = Some(self.first_index(&self.values[n].id));
+                break;
             }
         }
-        None
+        let length = length.expect("length not found");
+        let index = index.expect("index not found");
+
+
+        if length > answer.len(){
+            //None
+            Some(0) //TODO: this should probably be an error.
+        }
+        else {
+            answer[..length].copy_from_slice(&self.data[index..(index + length)]);
+            Some(length)
+        }
+    }
+
+    fn shift_and_set_to_new_length(&mut self, position: usize, new_length: u8) {
+        if new_length == self.values[position as usize].length {
+            return;
+        }
+
+        let index = self.first_index(&self.values[position].id);
+
+        if new_length > self.values[position].length {
+            let offset = (new_length - self.values[position].length) as usize;
+            for n in ((index + offset)..DATA_SIZE).rev() {
+                self.data[n] = self.data[n - offset];
+            }
+        } else {
+            let offset = (self.values[position].length - new_length) as usize;
+            for n in index..(DATA_SIZE - offset) {
+                self.data[n] = self.data[n + offset];
+            }
+        }
+        self.values[position].length = new_length;
+        self.data[position] = new_length; //TODO: this looks unclean
     }
 
     pub fn store(&mut self, value: &[u8], value_id: ValueId) {
-        fn copy_value_to_field(value: &[u8], target: &mut [u8]) {
-            target.fill('\0' as u8);
-            let copy_len = min(target.len(), value.len());
-            target[..copy_len].copy_from_slice(&value[..copy_len]);
-        }
-
         self.read_all();
-        match value_id {
-            ValueId::WifiSsid           => copy_value_to_field(value, &mut self.value.wifi_ssid),
-            ValueId::WifiPassword       => copy_value_to_field(value, &mut self.value.wifi_password),
-            ValueId::MqttHostIp         => copy_value_to_field(value, &mut self.value.mqtt_host_ip),
-            ValueId::MqttBrokerUsername => copy_value_to_field(value, &mut self.value.mqtt_broker_username),
-            ValueId::MqttBrokerPassword => copy_value_to_field(value, &mut self.value.mqtt_broker_password),
+
+        let mut position: Option<usize> = None;
+        let new_length = value.len() as u8;
+        for n in 0..self.values.len() {
+            if self.values[n].id == value_id {
+                position = Some(n);
+                break;
+            }
         }
+        let position = position.expect("position not found");
 
-        let mut data: [u8; DATA_SIZE] = [0x00; DATA_SIZE];
-        data[0..32].copy_from_slice(&self.value.wifi_ssid);
-        data[32..64].copy_from_slice(&self.value.wifi_password);
-        data[64..96].copy_from_slice(&self.value.mqtt_host_ip);
-        data[96..128].copy_from_slice(&self.value.mqtt_broker_username);
-        data[128..160].copy_from_slice(&self.value.mqtt_broker_password);
+        self.shift_and_set_to_new_length(position, new_length);
 
-        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory");
-        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to write flash memory");
+        let index = self.first_index(&self.values[position].id); //TODO: irgendwie Code Duplikation, siehe oben.
+
+        self.data[index..index+value.len()].copy_from_slice(value);
+
+        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory.");
+        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &self.data).expect("Failed to write flash memory.");
     }
 }
 

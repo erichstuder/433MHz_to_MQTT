@@ -72,7 +72,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
 
     let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
     let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username).unwrap();
-    let mqtt_broker_username = &mqtt_broker_username[..length-1]; //TODO: This -1 is just a dirty hack for the moment!!!
+    let mqtt_broker_username = &mqtt_broker_username[..length];
 
     let mut mqtt_broker_password: [u8; 32] = ['\0' as u8; 32];
     let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password).unwrap();

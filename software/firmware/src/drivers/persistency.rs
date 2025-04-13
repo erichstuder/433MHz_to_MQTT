@@ -59,35 +59,10 @@ impl Persistency {
         }
     }
 
-    fn read_all(&mut self) {
-        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut self.data).expect("failed to read flash memory");
-
-        for n in 0..self.values.len() {
-            self.values[n].length = self.data[n];
-
-            if n == 0 {
-                self.values[n].index = FILE_DESCRIPTOR_SIZE;
-            } else {
-                self.values[n].index = self.values[n-1].index + self.values[n-1].length as usize;
-            }
-        }
-    }
-
-    fn get_value(&self, value_id: ValueId) -> &Value {
-        for n in 0..self.values.len() {
-            if self.values[n].id == value_id {
-                return &self.values[n];
-            }
-        }
-        panic!("value not found");
-    }
-
     pub fn read(&mut self, value_id: ValueId, answer: &mut [u8]) -> Result<usize, &'static str> {
         self.read_all();
 
-        let value = self.get_value(value_id);
-        let length = value.length as usize;
-        let index = value.index;
+        let (length, index) = self.get_length_and_index(&value_id);
 
         if length > answer.len(){
             Err("answer buffer too small")
@@ -98,49 +73,74 @@ impl Persistency {
         }
     }
 
-    fn shift_and_set_to_new_length(&mut self, position: usize, new_length: u8) {
-        if new_length == self.values[position as usize].length {
-            return;
+    pub fn store(&mut self, value_data: &[u8], value_id: ValueId) {
+        self.read_all();
+
+        self.update_values(&value_id, value_data);
+
+        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory.");
+        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &self.data).expect("Failed to write flash memory.");
+    }
+
+    fn read_all(&mut self) {
+        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut self.data).expect("failed to read flash memory");
+
+        for n in 0..self.values.len() {
+            self.values[n].length = self.data[n];
         }
 
-        let index = self.values[position].index;
+        self.update_values_indexes();
+    }
 
-        if new_length > self.values[position].length {
-            let offset = (new_length - self.values[position].length) as usize;
+    fn update_values_indexes(&mut self) {
+        for n in 0..self.values.len() {
+            if n == 0 {
+                self.values[n].index = FILE_DESCRIPTOR_SIZE;
+            } else {
+                self.values[n].index = self.values[n-1].index + self.values[n-1].length as usize;
+            }
+        }
+    }
+
+    fn get_length_and_index(&self, value_id: &ValueId) -> (usize, usize) {
+        for value in self.values.iter() {
+            if value.id == *value_id {
+                return (value.length as usize, value.index);
+            }
+        }
+        panic!("value not found");
+    }
+
+    fn update_values(&mut self, value_id: &ValueId, value_data: &[u8]) {
+        let new_length = value_data.len();
+        let (length, index) = self.get_length_and_index(value_id);
+
+        // shift old values so the new ones fit
+        if new_length > length {
+            let offset = new_length - length;
             for n in ((index + offset)..DATA_SIZE).rev() {
                 self.data[n] = self.data[n - offset];
             }
-        } else {
-            let offset = (self.values[position].length - new_length) as usize;
+        } else if new_length < length {
+            let offset = length - new_length;
             for n in index..(DATA_SIZE - offset) {
                 self.data[n] = self.data[n + offset];
             }
         }
-        self.values[position].length = new_length;
-        self.data[position] = new_length; //TODO: this looks unclean
-    }
 
-    pub fn store(&mut self, value: &[u8], value_id: ValueId) {
-        self.read_all();
-
-        let mut position: Option<usize> = None;
-        let new_length = value.len() as u8;
+        // update value data
         for n in 0..self.values.len() {
-            if self.values[n].id == value_id {
-                position = Some(n);
-                break;
+            if self.values[n].id == *value_id {
+                self.values[n].length = new_length as u8;
+                self.data[n] = new_length as u8;
+                self.update_values_indexes();
+
+                let (_, index) = self.get_length_and_index(value_id);
+                self.data[index..index+value_data.len()].copy_from_slice(value_data);
+                return;
             }
         }
-        let position = position.expect("position not found");
-
-        self.shift_and_set_to_new_length(position, new_length);
-
-        let index = self.values[position].index;
-
-        self.data[index..index+value.len()].copy_from_slice(value);
-
-        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory.");
-        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &self.data).expect("Failed to write flash memory.");
+        panic!("value not found");
     }
 }
 

@@ -1,3 +1,5 @@
+use core::panic;
+
 use embassy_executor::task;
 
 use app::parser::{self, Parser};
@@ -8,6 +10,7 @@ use crate::UsbSenderMutexed;
 use crate::UsbReceiver;
 
 use crate::PersistencyMutexed;
+use embassy_usb::driver::EndpointError;
 
 #[task]
 pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutexed) {
@@ -29,7 +32,24 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: Usb
         usb_receiver.wait_connection().await;
         let byte_cnt = match usb_receiver.read_packet(&mut bytes).await {
             Ok(byte_cnt) => byte_cnt,
-            Err(_e) => continue,
+            Err(e) => {
+                match e {
+                    EndpointError::BufferOverflow => {
+                        let mut sender = usb_sender.lock().await;
+                        sender.write_packet("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
+                        for chunk in bytes.chunks(sender.max_packet_size() as usize) {
+                            sender.write_packet(chunk).await.unwrap();
+                        }
+                        sender.write_packet("... The system now shuts down. Goodbye.\n".as_bytes()).await.unwrap();
+                        // This should never ever happen. So a panic is appropriate.
+                        panic!("receive buffer overflow");
+                    },
+                    EndpointError::Disabled => {
+                        // This is expected when the USB cable is disconnected.
+                        continue;
+                    },
+                }
+            },
         };
 
         for n in 0..byte_cnt {

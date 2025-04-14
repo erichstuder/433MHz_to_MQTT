@@ -3,8 +3,10 @@ use embassy_executor::task;
 use app::parser::{self, Parser};
 use crate::drivers::persistency::ParserToPersistency;
 
+use crate::drivers::usb_communication;
 use crate::UsbSenderMutexed;
 use crate::UsbReceiver;
+
 use crate::PersistencyMutexed;
 
 #[task]
@@ -18,7 +20,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: Usb
 
     let parser_to_persistency = ParserToPersistency::new(persistency);
     let mut parser = Parser::new(EnterBootloader, parser_to_persistency);
-    let mut bytes = [0u8; 64]; //TODO: this should be the max packet size, see usb_communication.rs
+    let mut bytes = [0u8; usb_communication::MAX_PACKET_SIZE as usize];
     let mut receive_buffer = [0u8; 128];
     let mut receive_buffer_index = 0usize;
     let mut ignore_message = false;

@@ -188,8 +188,10 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
         Timer::after(Duration::from_millis(2000)).await;
     }
 
-    client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await.unwrap();
-    info!("message sent");
+    match client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await {
+        Ok(()) => info!("message sent"),
+        Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
+    }
 
 
 

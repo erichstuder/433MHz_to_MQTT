@@ -98,7 +98,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     };
     let mqtt_broker_username = &mqtt_broker_username[..length];
 
-    let mut mqtt_broker_password: [u8; 32] = ['\0' as u8; 32];
+    let mut mqtt_broker_password = ['\0' as u8; 64];
     let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
         Ok(length) => length,
         Err(e) => {
@@ -106,7 +106,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
             return;
         }
     };
-    let _mqtt_broker_password = &mqtt_broker_password[..length];
+    let mqtt_broker_password = &mqtt_broker_password[..length];
 
     info!("ssid: {:?}", wifi_ssid);
     info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
@@ -157,7 +157,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
     config.add_client_id("433MHz_to_MQTT");
     config.add_username(str::from_utf8(mqtt_broker_username).unwrap());
-    config.add_password("myPassword");
+    config.add_password(str::from_utf8(mqtt_broker_password).unwrap());
     config.max_packet_size = 150; //was 100
 
 

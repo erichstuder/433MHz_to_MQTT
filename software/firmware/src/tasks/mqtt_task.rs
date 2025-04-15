@@ -1,8 +1,10 @@
 use defmt::{unwrap, info, error};
 use embassy_executor::{task, Spawner};
+use embassy_rp::pac::xip_ctrl::regs::Stat;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
 use embassy_rp::gpio;
+use rust_mqtt::utils::rng_generator::CountingRng;
 use static_cell::StaticCell;
 use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
 use cyw43::JoinOptions;
@@ -34,182 +36,233 @@ pub struct WifiHw {
     pub dma_ch1: DMA_CH1,
 }
 
-#[task]
-pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawner: Spawner) {
-    let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-    let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+pub struct MQTT {
+    //rx_buffer: [u8; 4096],
+    //tx_buffer: [u8; 4096],
+    //recv_buffer: [u8; 150],
+    //write_buffer: &'static mut[u8; 150],
+    client: MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>,
+}
 
-    let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
-    let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
-    let spi = cyw43_pio::PioSpi::new(&mut hw.pio_1.common, hw.pio_1.sm0, DEFAULT_CLOCK_DIVIDER, hw.pio_1.irq0, cs, hw.pin_24, hw.pin_29, hw.dma_ch1);
+impl MQTT {
+    // pub fn new() -> Self {
+    //     Self {
+    //         socket: embassy_net::tcp::TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer),
+    //         client: MqttClient::<_, 5, _>::new(  //was 5
+    //             socket,
+    //             &mut write_buffer,
+    //             150,
+    //             &mut recv_buffer,
+    //             150,
+    //             config,
+    //         );,
+    //     }
+    // }
 
-    static STATE: StaticCell<cyw43::State> = StaticCell::new();
-    let state = STATE.init(cyw43::State::new());
-    let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-    unwrap!(spawner.spawn(cyw43_task(runner))); //TODO: irgenwie wird hier eine andere unwrap funktion verwendet. warum?
+    //#[task]
+    pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawner: Spawner) -> Option<Self> {
+        let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
+        let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
 
-    control.init(clm).await;
-    control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
+        let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
+        let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
+        let spi = cyw43_pio::PioSpi::new(&mut hw.pio_1.common, hw.pio_1.sm0, DEFAULT_CLOCK_DIVIDER, hw.pio_1.irq0, cs, hw.pin_24, hw.pin_29, hw.dma_ch1);
 
-    let config = embassy_net::Config::dhcpv4(Default::default());
-    let mut rng = RoscRng;
-    let seed = rng.next_u64();
-    static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
-    let (stack, runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
-    unwrap!(spawner.spawn(net_task(runner)));
+        static STATE: StaticCell<cyw43::State> = StaticCell::new();
+        let state = STATE.init(cyw43::State::new());
+        let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
+        unwrap!(spawner.spawn(cyw43_task(runner))); //TODO: irgenwie wird hier eine andere unwrap funktion verwendet. warum?
 
-    let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
-    let length = match persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
-        Ok(length) => length,
-        Err(e) => {
-            error!("Failed to read Wifi SSID: {:?}", e);
-            return;
-        }
-    };
-    let wifi_ssid = str::from_utf8(&wifi_ssid[..length]).unwrap();
+        control.init(clm).await;
+        control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
 
-    let mut wifi_password: [u8; 32] = ['\0' as u8; 32];
-    let length = match persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password) {
-        Ok(length) => length,
-        Err(e) => {
-            error!("Failed to read Wifi Password: {:?}", e);
-            return;
-        }
-    };
-    let wifi_password = &wifi_password[..length];
+        let config = embassy_net::Config::dhcpv4(Default::default());
+        let mut rng = RoscRng;
+        let seed = rng.next_u64();
+        static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
+        let (stack, runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
+        unwrap!(spawner.spawn(net_task(runner)));
 
-    let mut mqtt_host_ip: [u8; 32] = ['\0' as u8; 32];
-    let length = match persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip) {
-        Ok(length) => length,
-        Err(e) => {
-            error!("Failed to read MQTT Host IP: {:?}", e);
-            return;
-        }
-    };
-    let mqtt_host_ip = &mqtt_host_ip[..length];
+        let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
+        let length = match persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
+            Ok(length) => length,
+            Err(e) => {
+                error!("Failed to read Wifi SSID: {:?}", e);
+                return None;
+            }
+        };
+        let wifi_ssid = str::from_utf8(&wifi_ssid[..length]).unwrap();
 
-    let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
-    let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
-        Ok(length) => length,
-        Err(e) => {
-            error!("Failed to read MQTT Broker Username: {:?}", e);
-            return;
-        }
-    };
-    let mqtt_broker_username = &mqtt_broker_username[..length];
+        let mut wifi_password: [u8; 32] = ['\0' as u8; 32];
+        let length = match persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password) {
+            Ok(length) => length,
+            Err(e) => {
+                error!("Failed to read Wifi Password: {:?}", e);
+                return None;
+            }
+        };
+        let wifi_password = &wifi_password[..length];
 
-    let mut mqtt_broker_password = ['\0' as u8; 64];
-    let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
-        Ok(length) => length,
-        Err(e) => {
-            error!("Failed to read MQTT Broker Password: {:?}", e);
-            return;
-        }
-    };
-    let mqtt_broker_password = &mqtt_broker_password[..length];
+        let mut mqtt_host_ip: [u8; 32] = ['\0' as u8; 32];
+        let length = match persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip) {
+            Ok(length) => length,
+            Err(e) => {
+                error!("Failed to read MQTT Host IP: {:?}", e);
+                return None;
+            }
+        };
+        let mqtt_host_ip = &mqtt_host_ip[..length];
 
-    info!("ssid: {:?}", wifi_ssid);
-    info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
+        let mut mqtt_broker_username_: [u8; 32] = ['\0' as u8; 32];
+        let _length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username_) {
+            Ok(length) => length,
+            Err(e) => {
+                error!("Failed to read MQTT Broker Username: {:?}", e);
+                return None;
+            }
+        };
+        static MQTT_BROKER_USERNAME: StaticCell<[u8; 32]> = StaticCell::new();
+        let mqtt_broker_username = MQTT_BROKER_USERNAME.init(['\0' as u8; 32]);
+        mqtt_broker_username[.._length].copy_from_slice(&mqtt_broker_username_[.._length]);
 
-    loop {
-        match control.join(wifi_ssid, JoinOptions::new(wifi_password)).await {
-            Ok(_) => {
-                info!("join successful");
-                break
-            },
-            Err(err) => {
-                info!("join failed with status={}", err.status);
+        let mut mqtt_broker_password = ['\0' as u8; 64];
+        let _length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
+            Ok(length) => length,
+            Err(e) => {
+                error!("Failed to read MQTT Broker Password: {:?}", e);
+                return None;
+            }
+        };
+        static MQTT_BROKER_PASSWORD: StaticCell<[u8; 64]> = StaticCell::new();
+        let mqtt_broker_password = MQTT_BROKER_PASSWORD.init(mqtt_broker_password);
+
+        info!("ssid: {:?}", wifi_ssid);
+        info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
+        info!("mqtt_host_ip: {:?}", str::from_utf8(mqtt_host_ip).unwrap());
+        info!("mqtt_broker_username: {:?}", str::from_utf8(mqtt_broker_username).unwrap());
+        info!("mqtt_broker_password: {:?}", str::from_utf8(mqtt_broker_password).unwrap());
+
+        loop {
+            match control.join(wifi_ssid, JoinOptions::new(wifi_password)).await {
+                Ok(_) => {
+                    info!("join successful");
+                    break
+                },
+                Err(err) => {
+                    info!("join failed with status={}", err.status);
+                }
             }
         }
-    }
 
-    info!("waiting for DHCP...");
-    while !stack.is_config_up() {
-        Timer::after_millis(100).await;
-    }
-    info!("DHCP is now up!");
-
-    let mut ip = [0u8; 4];
-    for (n, part) in mqtt_host_ip.split(|&b| b == b'.').enumerate() {
-        if n >= ip.len() {
-            error!("invalid mqtt host ip format");
-            return;
+        info!("waiting for DHCP...");
+        while !stack.is_config_up() {
+            Timer::after_millis(100).await;
         }
-        let part = str::from_utf8(part).unwrap();
-        let part = part.parse::<u8>().unwrap();
-        ip[n] = part;
-    }
-    let address = Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]);
-    let remote_endpoint = (address, 1883);
+        info!("DHCP is now up!");
 
-
-    let mut rx_buffer = [0; 4096];
-    let mut tx_buffer = [0; 4096];
-    let mut socket = embassy_net::tcp::TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer);
-    socket.set_timeout(Some(embassy_time::Duration::from_secs(100))); //was 10
-    let mut recv_buffer = [0; 150]; //was 80
-    let mut write_buffer = [0; 150]; //was 80
-
-    let connection = socket.connect(remote_endpoint).await;
-    if let Err(e) = connection {
-        error!("connect error: {:?}", e);
-    }
-    info!("connected to broker!");
-
-    let mut config = rust_mqtt::client::client_config::ClientConfig::new(
-        rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-        rust_mqtt::utils::rng_generator::CountingRng(20000),
-    );
-    config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-    config.add_client_id("433MHz_to_MQTT");
-    config.add_username(str::from_utf8(mqtt_broker_username).unwrap());
-    config.add_password(str::from_utf8(mqtt_broker_password).unwrap());
-    config.max_packet_size = 150; //was 100
-
-
-    let mut client = MqttClient::<_, 5, _>::new(  //was 5
-        socket,
-        &mut write_buffer,
-        150,
-        &mut recv_buffer,
-        150,
-        config,
-    );
-
-    loop {
-        match client.connect_to_broker().await {
-            Ok(()) => {
-                info!("Connected to broker 555");
-                break;
+        let mut ip = [0u8; 4];
+        for (n, part) in mqtt_host_ip.split(|&b| b == b'.').enumerate() {
+            if n >= ip.len() {
+                error!("invalid mqtt host ip format");
+                return None;
             }
-            Err(mqtt_error) => match mqtt_error {
-                rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => {
-                    error!("MQTT Network Error");
-                }
-                _ => {
-                    error!("Other MQTT Error: {:?}", mqtt_error);
-                }
-            },
+            let part = str::from_utf8(part).unwrap();
+            let part = part.parse::<u8>().unwrap();
+            ip[n] = part;
         }
-        Timer::after(Duration::from_millis(2000)).await;
+        let address = Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]);
+        let remote_endpoint = (address, 1883);
+
+        static RX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
+        let rx_buffer = RX_BUFFER.init([0; 4096]);
+        static TX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
+        let tx_buffer = TX_BUFFER.init([0; 4096]);
+        let mut socket = embassy_net::tcp::TcpSocket::new(stack, rx_buffer, tx_buffer);
+        socket.set_timeout(Some(embassy_time::Duration::from_secs(100))); //was 10
+        static RECV_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
+        let recv_buffer = RECV_BUFFER.init([0; 150]);
+        static WRITE_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
+        let write_buffer = WRITE_BUFFER.init([0; 150]);
+
+        let connection = socket.connect(remote_endpoint).await;
+        if let Err(e) = connection {
+            error!("connect error: {:?}", e);
+        }
+        info!("connected to broker!");
+
+        let mut config = rust_mqtt::client::client_config::ClientConfig::new(
+            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
+            rust_mqtt::utils::rng_generator::CountingRng(20000),
+        );
+        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
+        config.add_client_id("433MHz_to_MQTT");
+        config.add_username(str::from_utf8(&mqtt_broker_username[..13]).unwrap()); //TODO: fix this
+        config.add_password(str::from_utf8(mqtt_broker_password).unwrap());
+        config.max_packet_size = 150; //was 100
+
+
+        let mut client = MqttClient::<_, 5, _>::new(  //was 5
+            socket,
+            write_buffer,
+            150,
+            recv_buffer,
+            150,
+            config,
+        );
+
+        loop {
+            match client.connect_to_broker().await {
+                Ok(()) => {
+                    info!("Connected to broker 555");
+                    break;
+                }
+                Err(mqtt_error) => match mqtt_error {
+                    rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => {
+                        error!("MQTT Network Error");
+                    }
+                    _ => {
+                        error!("Other MQTT Error: {:?}", mqtt_error);
+                    }
+                },
+            }
+            Timer::after(Duration::from_millis(2000)).await;
+        }
+
+
+
+        Some(Self {
+            client: client,
+        })
+
+
+
+        //Some(Self);
+
+        // match client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await {
+        //     Ok(()) => info!("message sent"),
+        //     Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
+        // }
+
+
+
+
+
+        // minimq::embedded_nal::TcpClientStack::
+        // let mut mqtt: Minimq<'_, _, _, minimq::broker::IpBroker> = Minimq::new(
+        //     stack,
+        //     embedded-time::Clock::default(),
+        //     ConfigBuilder::new(localhost.into(), &mut buffer).client_id("test").unwrap(),
+        // );
+
     }
 
-    match client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await {
-        Ok(()) => info!("message sent"),
-        Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
+    pub async fn send_message(&mut self, payload: &[u8]) {
+        let result = self.client.send_message("433", payload, rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await;
+        match result {
+            Ok(()) => info!("message sent"),
+            Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
+        }
     }
-
-
-
-
-
-    // minimq::embedded_nal::TcpClientStack::
-    // let mut mqtt: Minimq<'_, _, _, minimq::broker::IpBroker> = Minimq::new(
-    //     stack,
-    //     embedded-time::Clock::default(),
-    //     ConfigBuilder::new(localhost.into(), &mut buffer).client_id("test").unwrap(),
-    // );
-
 }
 
 #[task]

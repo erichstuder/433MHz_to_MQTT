@@ -59,24 +59,54 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     unwrap!(spawner.spawn(net_task(runner)));
 
     let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read Wifi SSID: {:?}", e);
+            return;
+        }
+    };
     let wifi_ssid = str::from_utf8(&wifi_ssid[..length]).unwrap();
 
     let mut wifi_password: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password).unwrap();
+    let length = match persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read Wifi Password: {:?}", e);
+            return;
+        }
+    };
     let wifi_password = &wifi_password[..length];
 
     let mut mqtt_host_ip: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip).unwrap();
-    let _mqtt_host_ip = &mqtt_host_ip[..length];
+    let length = match persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read MQTT Host IP: {:?}", e);
+            return;
+        }
+    };
+    let mqtt_host_ip = &mqtt_host_ip[..length];
 
     let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username).unwrap();
-    let mqtt_broker_username = &mqtt_broker_username[..length-1]; //TODO: This -1 is just a dirty hack for the moment!!!
+    let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read MQTT Broker Username: {:?}", e);
+            return;
+        }
+    };
+    let mqtt_broker_username = &mqtt_broker_username[..length];
 
-    let mut mqtt_broker_password: [u8; 32] = ['\0' as u8; 32];
-    let length = persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password).unwrap();
-    let _mqtt_broker_password = &mqtt_broker_password[..length];
+    let mut mqtt_broker_password = ['\0' as u8; 64];
+    let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
+        Ok(length) => length,
+        Err(e) => {
+            error!("Failed to read MQTT Broker Password: {:?}", e);
+            return;
+        }
+    };
+    let mqtt_broker_password = &mqtt_broker_password[..length];
 
     info!("ssid: {:?}", wifi_ssid);
     info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
@@ -99,11 +129,17 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     }
     info!("DHCP is now up!");
 
-
-    //mqtt
-
-    // broker: 192.168.1.105
-    let address = Ipv4Addr::new(192, 168, 1, 105);
+    let mut ip = [0u8; 4];
+    for (n, part) in mqtt_host_ip.split(|&b| b == b'.').enumerate() {
+        if n >= ip.len() {
+            error!("invalid mqtt host ip format");
+            return;
+        }
+        let part = str::from_utf8(part).unwrap();
+        let part = part.parse::<u8>().unwrap();
+        ip[n] = part;
+    }
+    let address = Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]);
     let remote_endpoint = (address, 1883);
 
 
@@ -127,7 +163,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
     config.add_client_id("433MHz_to_MQTT");
     config.add_username(str::from_utf8(mqtt_broker_username).unwrap());
-    config.add_password("myPassword");
+    config.add_password(str::from_utf8(mqtt_broker_password).unwrap());
     config.max_packet_size = 150; //was 100
 
 
@@ -158,8 +194,10 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
         Timer::after(Duration::from_millis(2000)).await;
     }
 
-    client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await.unwrap();
-    info!("message sent");
+    match client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await {
+        Ok(()) => info!("message sent"),
+        Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
+    }
 
 
 

@@ -4,18 +4,26 @@
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 use core::future::Future;
-use core::cmp::min;
 use app::parser;
 use crate::PersistencyMutexed;
 
 struct Value {
-    wifi_ssid: [u8; 32],
-    wifi_password: [u8; 32],
-    mqtt_host_ip: [u8; 32],
-    mqtt_broker_username: [u8; 32],
-    mqtt_broker_password: [u8; 32],
+    id: ValueId,
+    length: u8,
+    index: usize,
 }
 
+impl Value {
+    fn new(id: ValueId) -> Self {
+        Self {
+            id,
+            length: 0,
+            index: 0,
+        }
+    }
+}
+
+#[derive(PartialEq)]
 pub enum ValueId {
     WifiSsid,
     WifiPassword,
@@ -26,83 +34,113 @@ pub enum ValueId {
 
 // These values must align with the specifications in memory.x.
 const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
-const DATA_SIZE : usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
+const DATA_SIZE: usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
 const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - flash::ERASE_SIZE; // put data at the end of flash memory.
+const FILE_DESCRIPTOR_SIZE: usize = 5;
 
 pub struct Persistency {
     flash: Flash<'static, FLASH, flash::Async, FLASH_SIZE>,
-    value: Value,
+    values: [Value; FILE_DESCRIPTOR_SIZE],
+    data: [u8; DATA_SIZE],
 }
 
 impl Persistency {
     pub fn new(flash: FLASH, dma: DMA_CH0) -> Self {
-        let persistency = Self {
+        Self {
             flash: Flash::new(flash, dma),
-            value: Value {
-                wifi_ssid: [0u8; 32],
-                wifi_password: [0u8; 32],
-                mqtt_host_ip: [0u8; 32],
-                mqtt_broker_username: [0u8; 32],
-                mqtt_broker_password: [0u8; 32],
-            },
-        };
-        persistency
+            values: [
+                Value::new(ValueId::WifiSsid),
+                Value::new(ValueId::WifiPassword),
+                Value::new(ValueId::MqttHostIp),
+                Value::new(ValueId::MqttBrokerUsername),
+                Value::new(ValueId::MqttBrokerPassword),
+            ],
+            data: [0; DATA_SIZE],
+        }
+    }
+
+    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8]) -> Result<usize, &'static str> {
+        self.read_all();
+
+        let (length, index) = self.get_length_and_index(&value_id);
+
+        if length > answer.len(){
+            Err("answer buffer too small")
+        }
+        else {
+            answer[..length].copy_from_slice(&self.data[index..(index + length)]);
+            Ok(length)
+        }
+    }
+
+    pub fn store(&mut self, value_data: &[u8], value_id: ValueId) {
+        self.read_all();
+
+        self.update_values(&value_id, value_data);
+
+        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory.");
+        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &self.data).expect("Failed to write flash memory.");
     }
 
     fn read_all(&mut self) {
-        let mut data: [u8; DATA_SIZE] = [0; DATA_SIZE];
-        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to read flash memory");
+        self.flash.blocking_read(DATA_ADDRESS_OFFSET as u32, &mut self.data).expect("failed to read flash memory");
 
-        self.value.wifi_ssid.copy_from_slice(&data[0..32]);
-        self.value.wifi_password.copy_from_slice(&data[32..64]);
-        self.value.mqtt_host_ip.copy_from_slice(&data[64..96]);
-        self.value.mqtt_broker_username.copy_from_slice(&data[96..128]);
-        self.value.mqtt_broker_password.copy_from_slice(&data[128..160]);
+        for n in 0..self.values.len() {
+            self.values[n].length = self.data[n];
+        }
+
+        self.update_values_indexes();
     }
 
-    pub fn read(&mut self, value_id: ValueId, answer: &mut [u8; 32]) -> Option<usize> {
-        self.read_all();
-
-        match value_id {
-            ValueId::WifiSsid           => answer.copy_from_slice(&self.value.wifi_ssid),
-            ValueId::WifiPassword       => answer.copy_from_slice(&self.value.wifi_password),
-            ValueId::MqttHostIp         => answer.copy_from_slice(&self.value.mqtt_host_ip),
-            ValueId::MqttBrokerUsername => answer.copy_from_slice(&self.value.mqtt_broker_username),
-            ValueId::MqttBrokerPassword => answer.copy_from_slice(&self.value.mqtt_broker_password),
-        };
-        for (index, &byte) in answer.iter().enumerate() {
-            if byte == '\0' as u8 {
-                return Some(index);
+    fn update_values_indexes(&mut self) {
+        for n in 0..self.values.len() {
+            if n == 0 {
+                self.values[n].index = FILE_DESCRIPTOR_SIZE;
+            } else {
+                self.values[n].index = self.values[n-1].index + self.values[n-1].length as usize;
             }
         }
-        None
     }
 
-    pub fn store(&mut self, value: &[u8], value_id: ValueId) {
-        fn copy_value_to_field(value: &[u8], target: &mut [u8]) {
-            target.fill('\0' as u8);
-            let copy_len = min(target.len(), value.len());
-            target[..copy_len].copy_from_slice(&value[..copy_len]);
+    fn get_length_and_index(&self, value_id: &ValueId) -> (usize, usize) {
+        for value in self.values.iter() {
+            if value.id == *value_id {
+                return (value.length as usize, value.index);
+            }
+        }
+        panic!("value not found");
+    }
+
+    fn update_values(&mut self, value_id: &ValueId, value_data: &[u8]) {
+        let new_length = value_data.len();
+        let (length, index) = self.get_length_and_index(value_id);
+
+        // shift old values so the new ones fit
+        if new_length > length {
+            let offset = new_length - length;
+            for n in ((index + offset)..DATA_SIZE).rev() {
+                self.data[n] = self.data[n - offset];
+            }
+        } else if new_length < length {
+            let offset = length - new_length;
+            for n in index..(DATA_SIZE - offset) {
+                self.data[n] = self.data[n + offset];
+            }
         }
 
-        self.read_all();
-        match value_id {
-            ValueId::WifiSsid           => copy_value_to_field(value, &mut self.value.wifi_ssid),
-            ValueId::WifiPassword       => copy_value_to_field(value, &mut self.value.wifi_password),
-            ValueId::MqttHostIp         => copy_value_to_field(value, &mut self.value.mqtt_host_ip),
-            ValueId::MqttBrokerUsername => copy_value_to_field(value, &mut self.value.mqtt_broker_username),
-            ValueId::MqttBrokerPassword => copy_value_to_field(value, &mut self.value.mqtt_broker_password),
+        // update value data
+        for n in 0..self.values.len() {
+            if self.values[n].id == *value_id {
+                self.values[n].length = new_length as u8;
+                self.data[n] = new_length as u8;
+                self.update_values_indexes();
+
+                let (_, index) = self.get_length_and_index(value_id);
+                self.data[index..index+value_data.len()].copy_from_slice(value_data);
+                return;
+            }
         }
-
-        let mut data: [u8; DATA_SIZE] = [0x00; DATA_SIZE];
-        data[0..32].copy_from_slice(&self.value.wifi_ssid);
-        data[32..64].copy_from_slice(&self.value.wifi_password);
-        data[64..96].copy_from_slice(&self.value.mqtt_host_ip);
-        data[96..128].copy_from_slice(&self.value.mqtt_broker_username);
-        data[128..160].copy_from_slice(&self.value.mqtt_broker_password);
-
-        self.flash.blocking_erase(DATA_ADDRESS_OFFSET as u32, (DATA_ADDRESS_OFFSET + DATA_SIZE) as u32).expect("Failed to erase flash memory");
-        self.flash.blocking_write(DATA_ADDRESS_OFFSET as u32, &mut data).expect("Failed to write flash memory");
+        panic!("value not found");
     }
 }
 
@@ -130,7 +168,7 @@ impl parser::PersistencyTrait for ParserToPersistency {
         }
     }
 
-    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8; 32]) -> impl Future<Output = Option<usize>> + 'a {
+    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a {
         async move {
             let mut persistency = self.persistency_mutexed.lock().await;
             match value_id {

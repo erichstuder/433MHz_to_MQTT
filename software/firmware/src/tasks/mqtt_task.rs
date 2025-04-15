@@ -86,7 +86,7 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
             return;
         }
     };
-    let _mqtt_host_ip = &mqtt_host_ip[..length];
+    let mqtt_host_ip = &mqtt_host_ip[..length];
 
     let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; 32];
     let length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
@@ -129,11 +129,17 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawn
     }
     info!("DHCP is now up!");
 
-
-    //mqtt
-
-    // broker: 192.168.1.105
-    let address = Ipv4Addr::new(192, 168, 1, 105);
+    let mut ip = [0u8; 4];
+    for (n, part) in mqtt_host_ip.split(|&b| b == b'.').enumerate() {
+        if n >= ip.len() {
+            error!("invalid mqtt host ip format");
+            return;
+        }
+        let part = str::from_utf8(part).unwrap();
+        let part = part.parse::<u8>().unwrap();
+        ip[n] = part;
+    }
+    let address = Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]);
     let remote_endpoint = (address, 1883);
 
 

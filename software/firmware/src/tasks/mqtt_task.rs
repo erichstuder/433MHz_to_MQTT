@@ -1,6 +1,6 @@
 use defmt::{unwrap, info, error};
 use embassy_executor::{task, Spawner};
-use embassy_rp::pac::xip_ctrl::regs::Stat;
+//use embassy_rp::pac::xip_ctrl::regs::Stat;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
 use embassy_rp::gpio;

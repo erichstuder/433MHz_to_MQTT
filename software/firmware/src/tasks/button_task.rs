@@ -1,4 +1,3 @@
-use defmt::info;
 use embassy_executor::task;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{PIO0, PIN_28};
@@ -10,7 +9,7 @@ use crate::UsbSenderMutexed;
 use app::buttons::Buttons;
 
 #[task]
-pub async fn run(mut pio: Pio<'static, PIO0>, receiver_pin: PIN_28, usb_sender: &'static UsbSenderMutexed, mut mqtt: MQTT) {
+pub async fn run(mut pio: Pio<'static, PIO0>, receiver_pin: PIN_28, _usb_sender: &'static UsbSenderMutexed, mut mqtt: MQTT) {
     // It would be nice to have generic types for pio and receiver_pin but I couldn't figure out how to do it.
 
     let buttons = Buttons::new();

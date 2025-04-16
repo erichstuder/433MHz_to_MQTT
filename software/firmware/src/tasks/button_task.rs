@@ -1,3 +1,4 @@
+use defmt::info;
 use embassy_executor::task;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{PIO0, PIN_28};
@@ -23,11 +24,13 @@ pub async fn run(mut pio: Pio<'static, PIO0>, receiver_pin: PIN_28, usb_sender: 
 
     loop {
         let pressed_button = remote_receiver.read().await;
-        {
-            let mut sender = usb_sender.lock().await;
-            let _ = sender.write_packet(pressed_button.as_bytes()).await;
-            let _ = sender.write_packet(b"\n").await;
-            mqtt.send_message(pressed_button.as_bytes()).await;
-        }
+
+        mqtt.send_message(pressed_button.as_bytes()).await;
+
+        // It can be helpful to have the pressed button printed to the console for debugging.
+        // But this blocks forever if no terminal is connected.
+        // let mut sender = usb_sender.lock().await;
+        // let _ = sender.write_packet(pressed_button.as_bytes()).await;
+        // let _ = sender.write_packet(b"\n").await;
     }
 }

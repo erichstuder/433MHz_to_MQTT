@@ -119,8 +119,9 @@ impl MQTT {
         };
         let mqtt_host_ip = &mqtt_host_ip[..length];
 
-        let mut mqtt_broker_username_: [u8; 32] = ['\0' as u8; 32];
-        let _length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username_) {
+        const MQTT_BROKER_USERNAME_LENGTH: usize = 32;
+        let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; MQTT_BROKER_USERNAME_LENGTH];
+        let _ = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
             Ok(length) => length,
             Err(e) => {
                 error!("Failed to read MQTT Broker Username: {:?}", e);
@@ -128,25 +129,25 @@ impl MQTT {
             }
         };
         static MQTT_BROKER_USERNAME: StaticCell<[u8; 32]> = StaticCell::new();
-        let mqtt_broker_username = MQTT_BROKER_USERNAME.init(['\0' as u8; 32]);
-        mqtt_broker_username[.._length].copy_from_slice(&mqtt_broker_username_[.._length]);
+        let mqtt_broker_username = str::from_utf8(MQTT_BROKER_USERNAME.init(mqtt_broker_username)).unwrap().trim_end_matches('\0');
 
-        let mut mqtt_broker_password = ['\0' as u8; 64];
-        let _length = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
+        const MQTT_BROKER_PASSWORD_LENGTH: usize = 64;
+        let mut mqtt_broker_password = ['\0' as u8; MQTT_BROKER_PASSWORD_LENGTH];
+        let _ = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
             Ok(length) => length,
             Err(e) => {
                 error!("Failed to read MQTT Broker Password: {:?}", e);
                 return None;
             }
         };
-        static MQTT_BROKER_PASSWORD: StaticCell<[u8; 64]> = StaticCell::new();
-        let mqtt_broker_password = MQTT_BROKER_PASSWORD.init(mqtt_broker_password);
+        static MQTT_BROKER_PASSWORD: StaticCell<[u8; MQTT_BROKER_PASSWORD_LENGTH]> = StaticCell::new();
+        let mqtt_broker_password = str::from_utf8(MQTT_BROKER_PASSWORD.init(mqtt_broker_password)).unwrap().trim_end_matches('\0');
 
         info!("ssid: {:?}", wifi_ssid);
         info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
         info!("mqtt_host_ip: {:?}", str::from_utf8(mqtt_host_ip).unwrap());
-        info!("mqtt_broker_username: {:?}", str::from_utf8(mqtt_broker_username).unwrap());
-        info!("mqtt_broker_password: {:?}", str::from_utf8(mqtt_broker_password).unwrap());
+        info!("mqtt_broker_username: {:?}", mqtt_broker_username);
+        info!("mqtt_broker_password: {:?}", mqtt_broker_password);
 
         loop {
             match control.join(wifi_ssid, JoinOptions::new(wifi_password)).await {
@@ -202,8 +203,8 @@ impl MQTT {
         );
         config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
         config.add_client_id("433MHz_to_MQTT");
-        config.add_username(str::from_utf8(&mqtt_broker_username[..13]).unwrap()); //TODO: fix this
-        config.add_password(str::from_utf8(mqtt_broker_password).unwrap());
+        config.add_username(mqtt_broker_username);
+        config.add_password(mqtt_broker_password);
         config.max_packet_size = 150; //was 100
 
         let client = MqttClient::<_, 5, _>::new(

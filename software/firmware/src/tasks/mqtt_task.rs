@@ -1,5 +1,6 @@
 use defmt::{unwrap, info, error};
 use embassy_executor::{task, Spawner};
+//use embassy_net::tcp::client;
 //use embassy_rp::pac::xip_ctrl::regs::Stat;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
@@ -27,6 +28,9 @@ use embassy_time::{Duration, Timer};
 use crate::drivers::persistency;
 use crate::PersistencyMutexed;
 
+use embassy_sync::mutex::Mutex;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+
 pub struct WifiHw {
     pub pin_23: PIN_23,
     pub pin_24: PIN_24,
@@ -36,12 +40,14 @@ pub struct WifiHw {
     pub dma_ch1: DMA_CH1,
 }
 
+type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>>;
+
 pub struct MQTT {
     //rx_buffer: [u8; 4096],
     //tx_buffer: [u8; 4096],
     //recv_buffer: [u8; 150],
     //write_buffer: &'static mut[u8; 150],
-    client: MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>,
+    client_mutexed: &'static MqttClientMutexed,
 }
 
 impl MQTT {
@@ -200,8 +206,7 @@ impl MQTT {
         config.add_password(str::from_utf8(mqtt_broker_password).unwrap());
         config.max_packet_size = 150; //was 100
 
-
-        let mut client = MqttClient::<_, 5, _>::new(  //was 5
+        let client = MqttClient::<_, 5, _>::new(
             socket,
             write_buffer,
             150,
@@ -209,8 +214,11 @@ impl MQTT {
             150,
             config,
         );
+        static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
+        let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
 
         loop {
+            let mut client = client_mutexed.lock().await;
             match client.connect_to_broker().await {
                 Ok(()) => {
                     info!("Connected to broker 555");
@@ -230,34 +238,16 @@ impl MQTT {
 
 
 
+        unwrap!(spawner.spawn(ping_task(client_mutexed)));
+
         Some(Self {
-            client: client,
+            client_mutexed,
         })
-
-
-
-        //Some(Self);
-
-        // match client.send_message("433", "hello from down here".as_bytes(), rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await {
-        //     Ok(()) => info!("message sent"),
-        //     Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
-        // }
-
-
-
-
-
-        // minimq::embedded_nal::TcpClientStack::
-        // let mut mqtt: Minimq<'_, _, _, minimq::broker::IpBroker> = Minimq::new(
-        //     stack,
-        //     embedded-time::Clock::default(),
-        //     ConfigBuilder::new(localhost.into(), &mut buffer).client_id("test").unwrap(),
-        // );
-
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {
-        let result = self.client.send_message("433", payload, rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await;
+        let mut client = self.client_mutexed.lock().await;
+        let result = client.send_message("433", payload, rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await;
         match result {
             Ok(()) => info!("message sent"),
             Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
@@ -273,4 +263,18 @@ async fn cyw43_task(runner: cyw43::Runner<'static, gpio::Output<'static>, cyw43_
 #[task]
 async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
     runner.run().await
+}
+
+#[task]
+async fn ping_task(client: &'static MqttClientMutexed) -> ! {
+    loop {
+        Timer::after(Duration::from_secs(30)).await;
+
+        let mut client = client.lock().await;
+        let result = client.send_ping().await;
+        match result {
+            Ok(()) => info!("ping sent"),
+            Err(mqtt_error) => info!("ping NOT sent: {:?}", mqtt_error),
+        }
+    }
 }

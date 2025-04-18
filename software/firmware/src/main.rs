@@ -5,27 +5,22 @@
 #![no_main]
 
 use {defmt_rtt as _, panic_probe as _};
-// use defmt::{unwrap, info};
 use embassy_executor::{Spawner, main};
 use embassy_rp::bind_interrupts;
 use embassy_rp::pio::{self, Pio};
-// use embassy_rp::peripherals::{USB, DMA_CH1, PIO0, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
 use embassy_rp::peripherals::{USB, PIO0, PIO1};
 use embassy_rp::usb;
-// use embassy_rp::gpio;
 use embassy_usb::class::cdc_acm;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use static_cell::StaticCell;
-// use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
-// use cyw43::JoinOptions;
 
 mod tasks;
 mod drivers;
 
 use crate::tasks::button_task;
 use crate::tasks::terminal_task;
-use crate::tasks::mqtt_task::{self, WifiHw};
+use crate::drivers::mqtt::{MQTT, WifiHw};
 use crate::drivers::usb_communication::UsbCommunication;
 use crate::drivers::persistency::Persistency;
 
@@ -52,8 +47,6 @@ async fn main(spawner: Spawner) {
         PERSISTENCY.init(Mutex::new(persistency))
     };
 
-
-
     spawner.spawn(terminal_task::run(persistency_mutexed, usb_receiver, usb_sender_mutexed)).unwrap();
 
     bind_interrupts!(struct Pio1Irqs {
@@ -69,7 +62,7 @@ async fn main(spawner: Spawner) {
         dma_ch1: peripherals.DMA_CH1,
     };
 
-    let mqtt = mqtt_task::MQTT::run(persistency_mutexed, wifi_hw, spawner).await.unwrap();
+    let mqtt = MQTT::new(persistency_mutexed, wifi_hw, spawner).await.unwrap();
 
     bind_interrupts!(struct Pio0Irqs {
         PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;

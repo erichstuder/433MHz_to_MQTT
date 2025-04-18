@@ -3,7 +3,7 @@ use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{PIO0, PIN_28};
 
 use crate::drivers::remote_receiver::RemoteReceiver;
-use crate::tasks::mqtt_task::MQTT;
+use crate::drivers::mqtt::MQTT;
 use crate::UsbSenderMutexed;
 
 use app::buttons::Buttons;

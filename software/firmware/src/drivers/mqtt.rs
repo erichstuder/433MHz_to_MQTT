@@ -66,7 +66,7 @@ impl MQTT {
     // }
 
     //#[task]
-    pub async fn run(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawner: Spawner) -> Option<Self> {
+    pub async fn new(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawner: Spawner) -> Option<Self> {
         let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
         let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
 

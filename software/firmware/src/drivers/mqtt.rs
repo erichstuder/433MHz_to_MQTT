@@ -4,9 +4,6 @@ use defmt::info;
 
 #[cfg(not(test))]
 use embassy_executor::{task, Spawner};
-
-//use embassy_net::tcp::client;
-//use embassy_rp::pac::xip_ctrl::regs::Stat;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
 #[cfg(not(test))]
@@ -28,18 +25,9 @@ use embassy_net;
 use embassy_rp::clocks::RoscRng;
 #[cfg(not(test))]
 use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
-//use minimq::{ConfigBuilder, Minimq, Publication};
-// use minimq::Minimq;
-// use embedded_nal_async;
-// use embedded_nal_async;
 use rust_mqtt::client::client::MqttClient;
-// use embassy_net:
 #[cfg(not(test))]
 use embassy_time::{Duration, Timer};
-
-// use minimq::embedded_nal::
-// use embedded_nal_async;
-
 #[cfg(not(test))]
 use crate::drivers::persistency;
 #[cfg(not(test))]
@@ -60,29 +48,10 @@ pub struct WifiHw {
 type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>>;
 
 pub struct MQTT {
-    //rx_buffer: [u8; 4096],
-    //tx_buffer: [u8; 4096],
-    //recv_buffer: [u8; 150],
-    //write_buffer: &'static mut[u8; 150],
     client_mutexed: &'static MqttClientMutexed,
 }
 
 impl MQTT {
-    // pub fn new() -> Self {
-    //     Self {
-    //         socket: embassy_net::tcp::TcpSocket::new(stack, &mut rx_buffer, &mut tx_buffer),
-    //         client: MqttClient::<_, 5, _>::new(  //was 5
-    //             socket,
-    //             &mut write_buffer,
-    //             150,
-    //             &mut recv_buffer,
-    //             150,
-    //             config,
-    //         );,
-    //     }
-    // }
-
-    //#[task]
     #[cfg(not(test))]
     pub async fn new(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawner: Spawner) -> Option<Self> {
         let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");

@@ -109,9 +109,9 @@ impl MQTT {
         Self::get_credentials(&persistency, &mut credentials).await.unwrap();
 
         static MQTT_BROKER_USERNAME: StaticCell<String<MQTT_BROKER_USERNAME_LENGTH>> = StaticCell::new();
-        let mqtt_broker_username = MQTT_BROKER_USERNAME.init(credentials.mqtt_broker_username);
+        let mqtt_broker_username = MQTT_BROKER_USERNAME.init(credentials.mqtt_broker_username.clone());
         static MQTT_BROKER_PASSWORD: StaticCell<String<MQTT_BROKER_PASSWORD_LENGTH>> = StaticCell::new();
-        let mqtt_broker_password = MQTT_BROKER_PASSWORD.init(credentials.mqtt_broker_password);
+        let mqtt_broker_password = MQTT_BROKER_PASSWORD.init(credentials.mqtt_broker_password.clone());
 
         loop {
             match control.join(credentials.wifi_ssid.as_str(), JoinOptions::new(credentials.wifi_password.as_bytes())).await {
@@ -119,9 +119,7 @@ impl MQTT {
                     info!("join successful");
                     break
                 },
-                Err(err) => {
-                    info!("join failed with status={}", err.status);
-                }
+                Err(err) => info!("join failed with status={}", err.status),
             }
         }
 
@@ -131,25 +129,17 @@ impl MQTT {
         }
         info!("DHCP is now up!");
 
-        let mut ip = [0u8; 4];
-        for (n, part) in credentials.mqtt_host_ip.as_bytes().split(|&b| b == b'.').enumerate() {
-            if n >= ip.len() {
-                error!("invalid mqtt host ip format");
-                return None;
-            }
-            let part = str::from_utf8(part).unwrap();
-            let part = part.parse::<u8>().unwrap();
-            ip[n] = part;
-        }
-        let address = Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]);
+        let (ip0, ip1, ip2, ip3) = Self::parse_ip(&credentials).unwrap();
+        let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
         let remote_endpoint = (address, 1883);
 
+        //TODO: The following buffer sizes have mostly been taken from examples. There might be better values.
         static RX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
         let rx_buffer = RX_BUFFER.init([0; 4096]);
         static TX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
         let tx_buffer = TX_BUFFER.init([0; 4096]);
         let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
-        socket.set_timeout(Some(embassy_time::Duration::from_secs(100))); //was 10
+        socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
         static RECV_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
         let recv_buffer = RECV_BUFFER.init([0; 150]);
         static WRITE_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
@@ -190,12 +180,8 @@ impl MQTT {
                     break;
                 }
                 Err(mqtt_error) => match mqtt_error {
-                    rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => {
-                        error!("MQTT Network Error");
-                    }
-                    _ => {
-                        error!("Other MQTT Error: {:?}", mqtt_error);
-                    }
+                    rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => error!("MQTT Network Error"),
+                    _ => error!("Other MQTT Error: {:?}", mqtt_error),
                 },
             }
             Timer::after(Duration::from_millis(2000)).await;
@@ -248,6 +234,20 @@ impl MQTT {
         info!("mqtt_broker_password: {:?}", credentials.mqtt_broker_password);
 
         Ok(())
+    }
+
+    fn parse_ip(credentials: &Credentials) -> Option<(u8, u8, u8, u8)> {
+        let mut ip = [0u8; 4];
+        for (n, part) in credentials.mqtt_host_ip.as_bytes().split(|&b| b == b'.').enumerate() {
+            if n >= ip.len() {
+                error!("invalid mqtt host ip format");
+                return None;
+            }
+            let part = str::from_utf8(part).unwrap();
+            let part = part.parse::<u8>().unwrap();
+            ip[n] = part;
+        }
+        Some((ip[0], ip[1], ip[2], ip[3]))
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {

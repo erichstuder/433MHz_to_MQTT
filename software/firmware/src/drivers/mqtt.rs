@@ -1,5 +1,5 @@
 #[cfg(not(test))]
-use defmt::{unwrap, error};
+use defmt::error;
 use defmt::info;
 
 #[cfg(not(test))]
@@ -59,12 +59,22 @@ impl MQTT {
 
         let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
         let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
-        let spi = cyw43_pio::PioSpi::new(&mut hw.pio_1.common, hw.pio_1.sm0, DEFAULT_CLOCK_DIVIDER, hw.pio_1.irq0, cs, hw.pin_24, hw.pin_29, hw.dma_ch1);
 
-        static STATE: StaticCell<cyw43::State> = StaticCell::new();
-        let state = STATE.init(cyw43::State::new());
-        let (net_device, mut control, runner) = cyw43::new(state, pwr, spi, fw).await;
-        unwrap!(spawner.spawn(cyw43_task(runner))); //TODO: irgenwie wird hier eine andere unwrap funktion verwendet. warum?
+        let spi = cyw43_pio::PioSpi::new(
+            &mut hw.pio_1.common,
+            hw.pio_1.sm0,
+            DEFAULT_CLOCK_DIVIDER,
+            hw.pio_1.irq0,
+            cs,
+            hw.pin_24,
+            hw.pin_29,
+            hw.dma_ch1
+        );
+
+        static CYW43_STATE: StaticCell<cyw43::State> = StaticCell::new();
+        let cyw43_state = CYW43_STATE.init(cyw43::State::new());
+        let (net_device, mut control, runner) = cyw43::new(cyw43_state, pwr, spi, fw).await;
+        spawner.spawn(cyw43_task(runner)).unwrap();
 
         control.init(clm).await;
         control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
@@ -73,8 +83,8 @@ impl MQTT {
         let mut rng = RoscRng;
         let seed = rng.next_u64();
         static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
-        let (stack, runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
-        unwrap!(spawner.spawn(net_task(runner)));
+        let (network_stack, network_runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
+        spawner.spawn(net_task(network_runner)).unwrap();
 
         let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
         let length = match persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
@@ -149,7 +159,7 @@ impl MQTT {
         }
 
         info!("waiting for DHCP...");
-        while !stack.is_config_up() {
+        while !network_stack.is_config_up() {
             Timer::after_millis(100).await;
         }
         info!("DHCP is now up!");
@@ -171,7 +181,7 @@ impl MQTT {
         let rx_buffer = RX_BUFFER.init([0; 4096]);
         static TX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
         let tx_buffer = TX_BUFFER.init([0; 4096]);
-        let mut socket = embassy_net::tcp::TcpSocket::new(stack, rx_buffer, tx_buffer);
+        let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
         socket.set_timeout(Some(embassy_time::Duration::from_secs(100))); //was 10
         static RECV_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
         let recv_buffer = RECV_BUFFER.init([0; 150]);
@@ -224,9 +234,7 @@ impl MQTT {
             Timer::after(Duration::from_millis(2000)).await;
         }
 
-
-
-        unwrap!(spawner.spawn(ping_task(client_mutexed)));
+        spawner.spawn(ping_task(client_mutexed)).unwrap();
 
         Some(Self {
             client_mutexed,

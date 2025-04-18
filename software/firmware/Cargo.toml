@@ -27,6 +27,7 @@ embedded-nal-async = "=0.8.0"
 embedded-time = "=0.12.1"
 rust-mqtt = { version = "=0.3.0", default-features = false, features = ["defmt"] }
 cfg-if = "=1.0.0"
+heapless = "=0.8.0"
 
 [dev-dependencies]
 tokio = "=1.44.2"

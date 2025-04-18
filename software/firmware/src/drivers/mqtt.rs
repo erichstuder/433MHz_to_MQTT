@@ -33,6 +33,8 @@ use crate::drivers::persistency;
 #[cfg(not(test))]
 use crate::PersistencyMutexed;
 
+use heapless::String;
+
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
@@ -46,6 +48,16 @@ pub struct WifiHw {
 }
 
 type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>>;
+
+const MQTT_BROKER_USERNAME_LENGTH: usize = 32;
+const MQTT_BROKER_PASSWORD_LENGTH: usize = 64;
+struct Credentials {
+    wifi_ssid: String<32>,
+    wifi_password: String<32>,
+    mqtt_host_ip: String<32>,
+    mqtt_broker_username: String<MQTT_BROKER_USERNAME_LENGTH>,
+    mqtt_broker_password: String<MQTT_BROKER_PASSWORD_LENGTH>,
+}
 
 pub struct MQTT {
     client_mutexed: &'static MqttClientMutexed,
@@ -86,68 +98,23 @@ impl MQTT {
         let (network_stack, network_runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
         spawner.spawn(net_task(network_runner)).unwrap();
 
-        let mut wifi_ssid: [u8; 32] = ['\0' as u8; 32];
-        let length = match persistency.lock().await.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
-            Ok(length) => length,
-            Err(e) => {
-                error!("Failed to read Wifi SSID: {:?}", e);
-                return None;
-            }
+        let mut credentials = Credentials {
+            wifi_ssid: String::new(),
+            wifi_password: String::new(),
+            mqtt_host_ip: String::new(),
+            mqtt_broker_username: String::new(),
+            mqtt_broker_password: String::new(),
         };
-        let wifi_ssid = str::from_utf8(&wifi_ssid[..length]).unwrap();
 
-        let mut wifi_password: [u8; 32] = ['\0' as u8; 32];
-        let length = match persistency.lock().await.read(persistency::ValueId::WifiPassword, &mut wifi_password) {
-            Ok(length) => length,
-            Err(e) => {
-                error!("Failed to read Wifi Password: {:?}", e);
-                return None;
-            }
-        };
-        let wifi_password = &wifi_password[..length];
+        Self::get_credentials(&persistency, &mut credentials).await.unwrap();
 
-        let mut mqtt_host_ip: [u8; 32] = ['\0' as u8; 32];
-        let length = match persistency.lock().await.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip) {
-            Ok(length) => length,
-            Err(e) => {
-                error!("Failed to read MQTT Host IP: {:?}", e);
-                return None;
-            }
-        };
-        let mqtt_host_ip = &mqtt_host_ip[..length];
-
-        const MQTT_BROKER_USERNAME_LENGTH: usize = 32;
-        let mut mqtt_broker_username: [u8; 32] = ['\0' as u8; MQTT_BROKER_USERNAME_LENGTH];
-        let _ = match persistency.lock().await.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
-            Ok(length) => length,
-            Err(e) => {
-                error!("Failed to read MQTT Broker Username: {:?}", e);
-                return None;
-            }
-        };
-        static MQTT_BROKER_USERNAME: StaticCell<[u8; 32]> = StaticCell::new();
-        let mqtt_broker_username = str::from_utf8(MQTT_BROKER_USERNAME.init(mqtt_broker_username)).unwrap().trim_end_matches('\0');
-
-        const MQTT_BROKER_PASSWORD_LENGTH: usize = 64;
-        let mut mqtt_broker_password = ['\0' as u8; MQTT_BROKER_PASSWORD_LENGTH];
-        let _ = match persistency.lock().await.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
-            Ok(length) => length,
-            Err(e) => {
-                error!("Failed to read MQTT Broker Password: {:?}", e);
-                return None;
-            }
-        };
-        static MQTT_BROKER_PASSWORD: StaticCell<[u8; MQTT_BROKER_PASSWORD_LENGTH]> = StaticCell::new();
-        let mqtt_broker_password = str::from_utf8(MQTT_BROKER_PASSWORD.init(mqtt_broker_password)).unwrap().trim_end_matches('\0');
-
-        info!("ssid: {:?}", wifi_ssid);
-        info!("password: {:?}", str::from_utf8(wifi_password).unwrap());
-        info!("mqtt_host_ip: {:?}", str::from_utf8(mqtt_host_ip).unwrap());
-        info!("mqtt_broker_username: {:?}", mqtt_broker_username);
-        info!("mqtt_broker_password: {:?}", mqtt_broker_password);
+        static MQTT_BROKER_USERNAME: StaticCell<String<MQTT_BROKER_USERNAME_LENGTH>> = StaticCell::new();
+        let mqtt_broker_username = MQTT_BROKER_USERNAME.init(credentials.mqtt_broker_username);
+        static MQTT_BROKER_PASSWORD: StaticCell<String<MQTT_BROKER_PASSWORD_LENGTH>> = StaticCell::new();
+        let mqtt_broker_password = MQTT_BROKER_PASSWORD.init(credentials.mqtt_broker_password);
 
         loop {
-            match control.join(wifi_ssid, JoinOptions::new(wifi_password)).await {
+            match control.join(credentials.wifi_ssid.as_str(), JoinOptions::new(credentials.wifi_password.as_bytes())).await {
                 Ok(_) => {
                     info!("join successful");
                     break
@@ -165,7 +132,7 @@ impl MQTT {
         info!("DHCP is now up!");
 
         let mut ip = [0u8; 4];
-        for (n, part) in mqtt_host_ip.split(|&b| b == b'.').enumerate() {
+        for (n, part) in credentials.mqtt_host_ip.as_bytes().split(|&b| b == b'.').enumerate() {
             if n >= ip.len() {
                 error!("invalid mqtt host ip format");
                 return None;
@@ -239,6 +206,48 @@ impl MQTT {
         Some(Self {
             client_mutexed,
         })
+    }
+
+    async fn get_credentials(persistency_mutexed: &PersistencyMutexed, credentials: &mut Credentials) -> Result<(), &'static str> {
+        let mut persistency = persistency_mutexed.lock().await;
+
+        let mut wifi_ssid = ['\0' as u8; 32];
+        match persistency.read(persistency::ValueId::WifiSsid, &mut wifi_ssid) {
+            Ok(_) => credentials.wifi_ssid.push_str(str::from_utf8(&wifi_ssid).unwrap().trim_end_matches('\0')).unwrap(),
+            Err(e) => return Err(e),
+        };
+
+        let mut wifi_password = ['\0' as u8; 32];
+        match persistency.read(persistency::ValueId::WifiPassword, &mut wifi_password) {
+            Ok(_) => credentials.wifi_password.push_str(str::from_utf8(&wifi_password).unwrap().trim_end_matches('\0')).unwrap(),
+            Err(e) => return Err(e),
+        };
+
+        let mut mqtt_host_ip = ['\0' as u8; 32];
+        match persistency.read(persistency::ValueId::MqttHostIp, &mut mqtt_host_ip) {
+            Ok(_) => credentials.mqtt_host_ip.push_str(str::from_utf8(&mqtt_host_ip).unwrap().trim_end_matches('\0')).unwrap(),
+            Err(e) => return Err(e),
+        };
+
+        let mut mqtt_broker_username = ['\0' as u8; 32];
+        match persistency.read(persistency::ValueId::MqttBrokerUsername, &mut mqtt_broker_username) {
+            Ok(_) => credentials.mqtt_broker_username.push_str(str::from_utf8(&mqtt_broker_username).unwrap().trim_end_matches('\0')).unwrap(),
+            Err(e) => return Err(e),
+        };
+
+        let mut mqtt_broker_password = ['\0' as u8; 64];
+        match persistency.read(persistency::ValueId::MqttBrokerPassword, &mut mqtt_broker_password) {
+            Ok(_) => credentials.mqtt_broker_password.push_str(str::from_utf8(&mqtt_broker_password).unwrap().trim_end_matches('\0')).unwrap(),
+            Err(e) => return Err(e),
+        };
+
+        info!("ssid: {:?}", credentials.wifi_ssid);
+        info!("password: {:?}", credentials.wifi_password);
+        info!("mqtt_host_ip: {:?}", credentials.mqtt_host_ip);
+        info!("mqtt_broker_username: {:?}", credentials.mqtt_broker_username);
+        info!("mqtt_broker_password: {:?}", credentials.mqtt_broker_password);
+
+        Ok(())
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {

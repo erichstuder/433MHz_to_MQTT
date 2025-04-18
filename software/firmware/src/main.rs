@@ -1,33 +1,44 @@
 //! This is the main file of the firmware.
 //! The pieces are set up, connected together and started.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 
+use cfg_if::cfg_if;
 use {defmt_rtt as _, panic_probe as _};
-use embassy_executor::{Spawner, main};
-use embassy_rp::bind_interrupts;
-use embassy_rp::pio::{self, Pio};
-use embassy_rp::peripherals::{USB, PIO0, PIO1};
-use embassy_rp::usb;
-use embassy_usb::class::cdc_acm;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use static_cell::StaticCell;
 
 mod tasks;
 mod drivers;
 
-use crate::tasks::button_task;
-use crate::tasks::terminal_task;
-use crate::drivers::mqtt::{MQTT, WifiHw};
-use crate::drivers::usb_communication::UsbCommunication;
 use crate::drivers::persistency::Persistency;
 
-type UsbSenderMutexed = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
-type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
 type PersistencyMutexed = Mutex<CriticalSectionRawMutex, Persistency>;
 
+cfg_if! {
+    if #[cfg(not(test))] {
+        use embassy_executor::{Spawner, main};
+        use embassy_rp::bind_interrupts;
+        use embassy_rp::pio::{self, Pio};
+        use embassy_rp::peripherals::USB;
+        use embassy_rp::peripherals::{PIO0, PIO1};
+        use embassy_rp::usb;
+        use embassy_usb::class::cdc_acm;
+        use static_cell::StaticCell;
+
+        use crate::tasks::button_task;
+        use crate::tasks::terminal_task;
+        use crate::drivers::mqtt::{MQTT, WifiHw};
+        use crate::drivers::usb_communication::UsbCommunication;
+
+        type UsbSenderMutexed = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
+        type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
+    }
+}
+
+
+#[cfg(not(test))]
 #[main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());

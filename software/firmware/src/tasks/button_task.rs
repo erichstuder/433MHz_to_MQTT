@@ -1,13 +1,19 @@
+#[cfg(not(test))]
 use embassy_executor::task;
+#[cfg(not(test))]
 use embassy_rp::pio::Pio;
+#[cfg(not(test))]
 use embassy_rp::peripherals::{PIO0, PIN_28};
-
+#[cfg(not(test))]
 use crate::drivers::remote_receiver::RemoteReceiver;
+#[cfg(not(test))]
 use crate::drivers::mqtt::MQTT;
+#[cfg(not(test))]
 use crate::UsbSenderMutexed;
-
+#[cfg(not(test))]
 use app::buttons::Buttons;
 
+#[cfg(not(test))]
 #[task]
 pub async fn run(mut pio: Pio<'static, PIO0>, receiver_pin: PIN_28, _usb_sender: &'static UsbSenderMutexed, mut mqtt: MQTT) {
     // It would be nice to have generic types for pio and receiver_pin but I couldn't figure out how to do it.

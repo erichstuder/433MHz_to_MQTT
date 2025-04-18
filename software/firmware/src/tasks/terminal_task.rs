@@ -1,17 +1,24 @@
+#[cfg(not(test))]
 use core::panic;
 
+#[cfg(not(test))]
 use embassy_executor::task;
-
+#[cfg(not(test))]
 use app::parser::{self, Parser};
+#[cfg(not(test))]
 use crate::drivers::persistency::ParserToPersistency;
-
+#[cfg(not(test))]
 use crate::drivers::usb_communication;
+#[cfg(not(test))]
 use crate::UsbSenderMutexed;
+#[cfg(not(test))]
 use crate::UsbReceiver;
-
+#[cfg(not(test))]
 use crate::PersistencyMutexed;
+#[cfg(not(test))]
 use embassy_usb::driver::EndpointError;
 
+#[cfg(not(test))]
 #[task]
 pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutexed) {
     struct EnterBootloader;

@@ -1,18 +1,32 @@
-use defmt::{unwrap, info, error};
+#[cfg(not(test))]
+use defmt::{unwrap, error};
+use defmt::info;
+
+#[cfg(not(test))]
 use embassy_executor::{task, Spawner};
+
 //use embassy_net::tcp::client;
 //use embassy_rp::pac::xip_ctrl::regs::Stat;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
+#[cfg(not(test))]
 use embassy_rp::gpio;
 use rust_mqtt::utils::rng_generator::CountingRng;
+#[cfg(not(test))]
 use static_cell::StaticCell;
+#[cfg(not(test))]
 use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
+#[cfg(not(test))]
 use cyw43::JoinOptions;
+#[cfg(not(test))]
 use core::net::Ipv4Addr;
+#[cfg(not(test))]
 use core::str;
+#[cfg(not(test))]
 use embassy_net;
+#[cfg(not(test))]
 use embassy_rp::clocks::RoscRng;
+#[cfg(not(test))]
 use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
 //use minimq::{ConfigBuilder, Minimq, Publication};
 // use minimq::Minimq;
@@ -20,12 +34,15 @@ use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use
 // use embedded_nal_async;
 use rust_mqtt::client::client::MqttClient;
 // use embassy_net:
+#[cfg(not(test))]
 use embassy_time::{Duration, Timer};
 
 // use minimq::embedded_nal::
 // use embedded_nal_async;
 
+#[cfg(not(test))]
 use crate::drivers::persistency;
+#[cfg(not(test))]
 use crate::PersistencyMutexed;
 
 use embassy_sync::mutex::Mutex;
@@ -66,6 +83,7 @@ impl MQTT {
     // }
 
     //#[task]
+    #[cfg(not(test))]
     pub async fn new(persistency: &'static PersistencyMutexed, mut hw: WifiHw, spawner: Spawner) -> Option<Self> {
         let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
         let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
@@ -256,16 +274,19 @@ impl MQTT {
     }
 }
 
+#[cfg(not(test))]
 #[task]
 async fn cyw43_task(runner: cyw43::Runner<'static, gpio::Output<'static>, cyw43_pio::PioSpi<'static, PIO1, 0, DMA_CH1>>) -> ! {
     runner.run().await
 }
 
+#[cfg(not(test))]
 #[task]
 async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
     runner.run().await
 }
 
+#[cfg(not(test))]
 #[task]
 async fn ping_task(client: &'static MqttClientMutexed) -> ! {
     loop {

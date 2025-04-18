@@ -1,17 +1,18 @@
-#[cfg(not(test))]
-use embassy_executor::task;
-#[cfg(not(test))]
-use embassy_rp::pio::Pio;
-#[cfg(not(test))]
-use embassy_rp::peripherals::{PIO0, PIN_28};
-#[cfg(not(test))]
-use crate::drivers::remote_receiver::RemoteReceiver;
-#[cfg(not(test))]
-use crate::drivers::mqtt::MQTT;
-#[cfg(not(test))]
-use crate::UsbSenderMutexed;
-#[cfg(not(test))]
-use app::buttons::Buttons;
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(not(test))] {
+        use embassy_executor::task;
+        use embassy_rp::pio::Pio;
+        use embassy_rp::peripherals::{PIO0, PIN_28};
+
+        use crate::drivers::remote_receiver::RemoteReceiver;
+        use crate::drivers::mqtt::MQTT;
+        use crate::UsbSenderMutexed;
+
+        use app::buttons::Buttons;
+    }
+}
 
 #[cfg(not(test))]
 #[task]

@@ -52,11 +52,7 @@ async fn main(spawner: Spawner) {
         PERSISTENCY.init(Mutex::new(persistency))
     };
 
-    bind_interrupts!(struct Pio0Irqs {
-        PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
-    });
-    let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
-    spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender_mutexed)).unwrap();
+
 
     spawner.spawn(terminal_task::run(persistency_mutexed, usb_receiver, usb_sender_mutexed)).unwrap();
 
@@ -72,7 +68,14 @@ async fn main(spawner: Spawner) {
         pio_1: pio,
         dma_ch1: peripherals.DMA_CH1,
     };
-    spawner.spawn(mqtt_task::run(persistency_mutexed, wifi_hw, spawner)).unwrap();
+
+    let mqtt = mqtt_task::MQTT::run(persistency_mutexed, wifi_hw, spawner).await.unwrap();
+
+    bind_interrupts!(struct Pio0Irqs {
+        PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
+    });
+    let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
+    spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender_mutexed, mqtt)).unwrap();
 
     usb_communication.usb.run().await;
 }

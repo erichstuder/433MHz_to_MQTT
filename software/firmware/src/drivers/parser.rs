@@ -1,5 +1,5 @@
 //! This module parses received messages, forwards them accordingly and returns the answer.
-//! It EnterBootloader and :doc:`../firmware/persistency`.
+//! It EnterBootloader and :doc:`persistency`.
 //!
 //! .. plantuml::
 //!

@@ -27,7 +27,7 @@ if __name__ == "__main__":
         commands = 'make html SPHINXOPTS="--fail-on-warning"'
     elif ex.arguments.autobuild:
         commands = 'sphinx-autobuild '+ ('' if ex.arguments.verbose else '-q') +' --port 8000 --host 0.0.0.0 '
-        commands += '--watch ../software/firmware/src --watch ../software/app/src --watch ../features '
+        commands += '--watch ../software/firmware/src --watch ../features '
         commands += '--re-ignore auto_generated source _build/html'
     else:
         commands = None

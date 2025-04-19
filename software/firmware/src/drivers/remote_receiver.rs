@@ -1,5 +1,5 @@
 //! This module receives data from the remote.
-//! Besides some platform specific stuff, it aggregates :doc:`../app/buttons`.
+//! Besides some platform specific stuff, it aggregates :doc:`buttons`.
 //!
 //! .. plantuml::
 //!
@@ -9,19 +9,26 @@
 //!
 //!    @enduml
 
+use cfg_if::cfg_if;
 use {defmt_rtt as _, panic_probe as _};
-use embassy_rp::{gpio, pio};
-use embassy_rp::pio::PioPin;
-use embassy_rp::pio::program::pio_asm;
-use fixed::traits::ToFixed;
 
-use app::buttons::Buttons;
+cfg_if! {
+    if #[cfg(not(test))] {
+        use embassy_rp::{gpio, pio};
+        use embassy_rp::pio::PioPin;
+        use embassy_rp::pio::program::pio_asm;
+        use fixed::traits::ToFixed;
+        use crate::drivers::buttons::Buttons;
+    }
+}
 
+#[cfg(not(test))]
 pub struct RemoteReceiver<'d, PIO: pio::Instance, const SM: usize> {
     pio_sm: pio::StateMachine<'d, PIO, SM>,
     buttons: Buttons,
 }
 
+#[cfg(not(test))]
 impl<'d, PIO: pio::Instance, const SM: usize> RemoteReceiver<'d, PIO, SM> {
     pub fn new(pio: &mut pio::Common<'d, PIO>, mut pio_sm: pio::StateMachine<'d, PIO, SM>, receiver_pin: impl PioPin, buttons: Buttons) -> Self {
         let mut pin = pio.make_pio_pin(receiver_pin);

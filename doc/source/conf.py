@@ -28,7 +28,6 @@ extensions = [
 
 rust_crates = {
     'firmware': '../software/firmware',
-    'app': '../software/app',
 }
 rust_doc_dir = 'source/auto_generated'
 rust_visibility = 'pvt'

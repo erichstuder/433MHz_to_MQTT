@@ -1,5 +1,5 @@
 //! This module handles the communication via USB.
-//! It receives telegrams and passes them to :doc:`../app/parser`.
+//! It receives telegrams and passes them to :doc:`parser`.
 //! It receives the answers from there and sends them out.
 //!
 //! .. plantuml::
@@ -10,18 +10,28 @@
 //!
 //!    @enduml
 
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(not(test))] {
+        use embassy_usb::UsbDevice;
+        use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
+
+        use static_cell::StaticCell;
+
+        type UsbDriver = usb::Driver<'static, USB>;
+
+        pub const MAX_PACKET_SIZE: u8 = 64;
+    }
+}
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb;
-use embassy_usb::UsbDevice;
-use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
+
 use embassy_usb::driver::EndpointError as UsbEndpointError;
-use static_cell::StaticCell;
 
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => usb::InterruptHandler<USB>;
 });
-
-type UsbDriver = usb::Driver<'static, USB>;
 
 pub struct UsbDisconnected {}
 
@@ -34,13 +44,13 @@ impl From<UsbEndpointError> for UsbDisconnected {
     }
 }
 
+#[cfg(not(test))]
 pub struct UsbCommunication {
     pub cdc_acm_class: CdcAcmClass<'static, UsbDriver>,
     pub usb: UsbDevice<'static, UsbDriver>,
 }
 
-pub const MAX_PACKET_SIZE: u8 = 64;
-
+#[cfg(not(test))]
 impl UsbCommunication {
     pub fn new(usb: USB) -> Self{
         let mut config = embassy_usb::Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005

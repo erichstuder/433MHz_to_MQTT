@@ -1,22 +1,18 @@
-#[cfg(not(test))]
-use core::panic;
+use cfg_if::cfg_if;
 
-#[cfg(not(test))]
-use embassy_executor::task;
-#[cfg(not(test))]
-use app::parser::{self, Parser};
-#[cfg(not(test))]
-use crate::drivers::persistency::ParserToPersistency;
-#[cfg(not(test))]
-use crate::drivers::usb_communication;
-#[cfg(not(test))]
-use crate::UsbSenderMutexed;
-#[cfg(not(test))]
-use crate::UsbReceiver;
-#[cfg(not(test))]
-use crate::PersistencyMutexed;
-#[cfg(not(test))]
-use embassy_usb::driver::EndpointError;
+cfg_if! {
+    if #[cfg(not(test))] {
+        use core::panic;
+        use embassy_executor::task;
+        use app::parser::{self, Parser};
+        use crate::drivers::persistency::ParserToPersistency;
+        use crate::drivers::usb_communication;
+        use crate::UsbSenderMutexed;
+        use crate::UsbReceiver;
+        use crate::PersistencyMutexed;
+        use embassy_usb::driver::EndpointError;
+    }
+}
 
 #[cfg(not(test))]
 #[task]
@@ -66,20 +62,17 @@ pub async fn run(persistency: &'static PersistencyMutexed, mut usb_receiver: Usb
                 }
                 else {
                     let mut answer = [0u8; 100];
-                    //TODO: remove code duplication
+                    let mut sender = usb_sender.lock().await;
                     match parser.parse_message(&receive_buffer[..receive_buffer_index], &mut answer).await {
                         Ok(length) => {
-                            let mut sender = usb_sender.lock().await;
                             sender.write_packet(&answer[..length]).await.unwrap();
-                            sender.write_packet("\n".as_bytes()).await.unwrap();
                         },
                         Err(e) => {
-                            let mut sender = usb_sender.lock().await;
                             sender.write_packet(&"ERROR: ".as_bytes()).await.unwrap();
                             sender.write_packet(&e.as_bytes()).await.unwrap();
-                            sender.write_packet("\n".as_bytes()).await.unwrap();
                         },
                     };
+                    sender.write_packet("\n".as_bytes()).await.unwrap();
                 }
                 receive_buffer_index = 0;
             }

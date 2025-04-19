@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "probe-rs-debug",
+            "name": "probe-rs launch",
             "type": "probe-rs-debug",
             "request": "launch",
             "preLaunchTask": "firmware_build",
@@ -13,6 +13,28 @@
                 "flashingEnabled": true,
                 "haltAfterReset": true,
             },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "programBinary": "build/thumbv6m-none-eabi/debug/firmware",
+                    "rttEnabled": true,
+                    "rttChannelFormats": [
+                        {
+                            "channelNumber": 0,
+                            "dataFormat": "Defmt",
+                            "logFormat": "{t} {L:5} {s}\n{{m} @ {F}:{l}%dimmed}"
+                        }
+                    ]
+                }
+            ],
+        },
+        {
+            "name": "probe-rs attach",
+            "type": "probe-rs-debug",
+            "request": "attach",
+            "cwd": "${workspaceFolder}/firmware",
+            "connectUnderReset": false,
+            "chip": "RP2040",
             "coreConfigs": [
                 {
                     "coreIndex": 0,

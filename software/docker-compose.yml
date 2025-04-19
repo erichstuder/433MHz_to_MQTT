@@ -10,6 +10,7 @@ services:
       - .:/home/${USER}/software
       - ../project_management:/home/${USER}/project_management
       - /media/${USER}:/media/${USER}
+      - /dev/bus/usb:/dev/bus/usb
     working_dir: /home/${USER}/software
     stdin_open: true
     tty: true

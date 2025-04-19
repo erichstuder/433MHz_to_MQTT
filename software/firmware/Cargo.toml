@@ -5,23 +5,28 @@ edition = "2021"
 
 [dependencies]
 app = { path = "../app" }
-embassy-sync = { version = "0.6.1", features = ["defmt"] }
-embassy-executor = { version = "0.6.3", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt", "integrated-timers"] }
-embassy-rp = { version = "0.2.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl"] }
-embassy-usb = { version = "0.3.0", features = ["defmt"] }
-embassy-futures = { version = "0.1.1" }
-embassy-time = { version = "0.3.2", features = ["defmt", "defmt-timestamp-uptime"] }
-defmt = "0.3.10"
-defmt-rtt = "0.4.1"
-fixed = "1.28.0"
-cortex-m-rt = "0.7.5"
-panic-probe = { version = "0.3.2", features = ["print-defmt"] }
-pio-proc = "0.2.2"
-pio = "0.2.1"
-static_cell = "2.1.0"
-portable-atomic = { version = "1.10.0", features = ["critical-section"] }
-cyw43 = { version = "0.2.0", features = ["defmt", "firmware-logs"] }
-cyw43-pio = { version = "0.2.0", features = ["defmt"] }
+embassy-sync = { version = "=0.6.2", features = ["defmt"] }
+embassy-executor = { version = "=0.7.0", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"] }
+embassy-rp = { version = "=0.4.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp2040"] }
+embassy-usb = { version = "=0.4.0", features = ["defmt"] }
+embassy-futures = { version = "=0.1.1" }
+embassy-time = { version = "=0.4.0", features = ["defmt", "defmt-timestamp-uptime"] }
+defmt = "=0.3.10"
+defmt-rtt = "=0.4.1"
+fixed = "=1.29.0"
+cortex-m-rt = "=0.7.5"
+panic-probe = { version = "=0.3.2", features = ["print-defmt"] }
+static_cell = "=2.1.0"
+portable-atomic = { version = "=1.11.0", features = ["critical-section"] }
+cyw43 = "=0.3.0" # defmt not used as there are warnings to ignore (see: https://github.com/embassy-rs/embassy/issues/3694)
+cyw43-pio = { version = "=0.4.0", features = ["defmt"] }
+embassy-net = { version = "=0.6.0", features = ["defmt", "tcp", "dhcpv4", "medium-ethernet", "proto-ipv4"] }
+rand_core = "=0.6.4" # this needs to be an older version because of embassy-rp 0.4.0
+minimq = "=0.10.0"
+embedded-nal-async = "=0.8.0"
+embedded-time = "=0.12.1"
+rust-mqtt = { version = "=0.3.0", default-features = false, features = ["defmt"] }
+
 
 [profile.dev]
 debug = 2

@@ -17,8 +17,6 @@ use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
 use embassy_usb::driver::EndpointError as UsbEndpointError;
 use static_cell::StaticCell;
 
-use app::parser::{self, Parser};
-
 embassy_rp::bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => usb::InterruptHandler<USB>;
 });
@@ -41,6 +39,8 @@ pub struct UsbCommunication {
     pub usb: UsbDevice<'static, UsbDriver>,
 }
 
+pub const MAX_PACKET_SIZE: u8 = 64;
+
 impl UsbCommunication {
     pub fn new(usb: USB) -> Self{
         let mut config = embassy_usb::Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
@@ -48,7 +48,7 @@ impl UsbCommunication {
         config.product = Some("433MHz_to_MQTT");
         config.serial_number = Some("12345678");
         config.max_power = 100;
-        config.max_packet_size_0 = 64;
+        config.max_packet_size_0 = MAX_PACKET_SIZE;
 
         // Required for windows compatibility.
         // https://developer.nordicsemi.com/nRF_Connect_SDK/doc/1.9.1/kconfig/CONFIG_CDC_ACM_IAD.html#help
@@ -89,15 +89,4 @@ impl UsbCommunication {
             usb,
         }
     }
-}
-
-pub async fn echo<E: parser::EnterBootloader, P: parser::Persistency>(
-    data: &[u8],
-    sender: &mut cdc_acm::Sender<'static, UsbDriver>,
-    parser: &mut Parser<E, P>
-) -> Result<(), UsbDisconnected>
-{
-    let answer = parser.parse_message(data);
-    sender.write_packet(answer).await?;
-    Ok(())
 }

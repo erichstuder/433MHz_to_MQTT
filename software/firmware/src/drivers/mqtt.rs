@@ -1,40 +1,32 @@
-#[cfg(not(test))]
-use defmt::error;
-use defmt::info;
+use cfg_if::cfg_if;
 
-#[cfg(not(test))]
-use embassy_executor::{task, Spawner};
+cfg_if! {
+    if #[cfg(not(test))] {
+        use embassy_executor::{task, Spawner};
+        use embassy_rp::gpio;
+        use embassy_time::{Duration, Timer};
+        use embassy_net;
+        use embassy_rp::clocks::RoscRng;
+        use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
+        use static_cell::StaticCell;
+        use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
+        use cyw43::JoinOptions;
+        use core::net::Ipv4Addr;
+    }
+}
+
+use defmt::{info, error};
+
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
-#[cfg(not(test))]
-use embassy_rp::gpio;
 use rust_mqtt::utils::rng_generator::CountingRng;
-#[cfg(not(test))]
-use static_cell::StaticCell;
-#[cfg(not(test))]
-use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
-#[cfg(not(test))]
-use cyw43::JoinOptions;
-#[cfg(not(test))]
-use core::net::Ipv4Addr;
-#[cfg(not(test))]
 use core::str;
-#[cfg(not(test))]
-use embassy_net;
-#[cfg(not(test))]
-use embassy_rp::clocks::RoscRng;
-#[cfg(not(test))]
-use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
 use rust_mqtt::client::client::MqttClient;
-#[cfg(not(test))]
-use embassy_time::{Duration, Timer};
-#[cfg(not(test))]
+
 use crate::drivers::persistency;
-#[cfg(not(test))]
 use crate::PersistencyMutexed;
 
 use heapless::String;
-
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 

@@ -2,7 +2,6 @@
 	"hediet.vscode-drawio.theme": "Kennedy",
 	"rust-analyzer.linkedProjects": [
 		"software/firmware/Cargo.toml",
-		"software/app/Cargo.toml",
 		"features/steps/Cargo.toml",
 	],
 

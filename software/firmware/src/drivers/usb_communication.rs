@@ -1,5 +1,5 @@
 //! This module handles the communication via USB.
-//! It receives telegrams and passes them to :doc:`../app/parser`.
+//! It receives telegrams and passes them to :doc:`parser`.
 //! It receives the answers from there and sends them out.
 //!
 //! .. plantuml::

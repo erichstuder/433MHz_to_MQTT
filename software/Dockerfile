@@ -19,13 +19,10 @@ RUN cargo install \
 # Pre-fetch dependencies. This makes the later build much faster.
 # - Add a temporary lib to fulfill dependency in Cargo.toml.
 WORKDIR /home/$USER/dependencies_fetch_project
-RUN cargo init --lib app
 # - Use a dummy project to fetch dependencies.
 WORKDIR /home/$USER/dependencies_fetch_project/dummy
 RUN cargo init
 COPY ./firmware/Cargo.toml .
-RUN cargo fetch
-COPY ./app/Cargo.toml .
 RUN cargo fetch
 # - For example when used as devcontainer, the UID is set to a default value (see above).
 #   I wasn't able to pass the UID of the local user to the container in this case.

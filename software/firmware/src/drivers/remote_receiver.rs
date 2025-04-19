@@ -1,5 +1,5 @@
 //! This module receives data from the remote.
-//! Besides some platform specific stuff, it aggregates :doc:`../app/buttons`.
+//! Besides some platform specific stuff, it aggregates :doc:`buttons`.
 //!
 //! .. plantuml::
 //!

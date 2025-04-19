@@ -6,8 +6,8 @@ use embassy_rp::peripherals::FLASH;
 #[cfg(not(test))]
 use embassy_rp::peripherals::DMA_CH0;
 use core::future::Future;
-use app::parser;
 
+use crate::drivers::parser;
 use crate::PersistencyMutexed;
 
 // These values must align with the specifications in memory.x.

@@ -4,7 +4,7 @@ cfg_if! {
     if #[cfg(not(test))] {
         use core::panic;
         use embassy_executor::task;
-        use app::parser::{self, Parser};
+        use crate::drivers::parser::{self, Parser};
         use crate::drivers::persistency::ParserToPersistency;
         use crate::drivers::usb_communication;
         use crate::UsbSenderMutexed;

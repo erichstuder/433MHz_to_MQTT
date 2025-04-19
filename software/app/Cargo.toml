@@ -1,7 +1,0 @@
-[package]
-name = "app"
-version = "0.0.0" # This module is only standalone compiled for test. So it needs no version.
-edition = "2021"
-
-[dev-dependencies]
-mockall = "0.13.1"

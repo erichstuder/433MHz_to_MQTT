@@ -9,8 +9,7 @@ cfg_if! {
         use crate::drivers::remote_receiver::RemoteReceiver;
         use crate::drivers::mqtt::MQTT;
         use crate::UsbSenderMutexed;
-
-        use app::buttons::Buttons;
+        use crate::drivers::buttons::Buttons;
     }
 }
 

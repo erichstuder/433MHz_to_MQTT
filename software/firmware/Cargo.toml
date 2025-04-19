@@ -4,7 +4,6 @@ version = "0.0.0" # Versioning is done automatically. This is just a placeholder
 edition = "2021"
 
 [dependencies]
-app = { path = "../app" }
 embassy-sync = { version = "=0.6.2", features = ["defmt"] }
 embassy-executor = { version = "=0.7.0", features = ["task-arena-size-32768", "arch-cortex-m", "executor-thread", "executor-interrupt", "defmt"], optional = true }
 embassy-rp = { version = "=0.4.0", features = ["defmt", "unstable-pac", "time-driver", "critical-section-impl", "rp2040"] }
@@ -30,7 +29,8 @@ cfg-if = "=1.0.0"
 heapless = "=0.8.0"
 
 [dev-dependencies]
-tokio = "=1.44.2"
+tokio = { version = "=1.44.2", features = ["macros", "rt-multi-thread"] }
+mockall = "=0.13.1"
 
 [features]
 default = ["embassy-executor"]

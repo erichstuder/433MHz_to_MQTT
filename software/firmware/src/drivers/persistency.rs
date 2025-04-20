@@ -1,5 +1,5 @@
-//! This module handles the persistency.
-//! It allows to persistently store and read data.
+//! Handles the persistency.
+//! It allows to persistently store data.
 
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::FLASH;

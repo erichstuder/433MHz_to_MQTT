@@ -1,3 +1,5 @@
+//! Handling of the terminal communication.
+
 use cfg_if::cfg_if;
 
 cfg_if! {

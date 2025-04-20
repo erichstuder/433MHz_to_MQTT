@@ -1,14 +1,4 @@
-//! This module handles the communication via USB.
-//! It receives telegrams and passes them to :doc:`parser`.
-//! It receives the answers from there and sends them out.
-//!
-//! .. plantuml::
-//!
-//!    @startuml
-//!
-//!    UsbCommunication o-- Parser
-//!
-//!    @enduml
+//! Handles the communication via USB.
 
 use cfg_if::cfg_if;
 

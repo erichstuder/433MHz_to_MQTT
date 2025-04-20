@@ -1,14 +1,4 @@
-//! This module parses received messages, forwards them accordingly and returns the answer.
-//! It EnterBootloader and :doc:`persistency`.
-//!
-//! .. plantuml::
-//!
-//!    @startuml
-//!
-//!    Parser o-- EnterBootloader
-//!    Parser o-- Persistency
-//!
-//!    @enduml
+//! Parses received messages, forwards them accordingly and returns the answer.
 
 use core::future::Future;
 

@@ -19,6 +19,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs  | sh -s -- -y && 
     rustup default 1.85.0 && \
     cargo install cargo-modules@0.23.1
 
+ENV PATH="/root/.cargo/bin:${PATH}"
+ENV CARGO_HOME="/root/.cargo"
+
 RUN . $HOME/.cargo/env  && python3 -m pip install --verbose \
     sphinx==8.1.3 \
     sphinx-autobuild==2024.10.3 \

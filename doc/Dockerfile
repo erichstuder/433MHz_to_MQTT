@@ -15,8 +15,12 @@ RUN wget https://github.com/jgraph/drawio-desktop/releases/download/v25.0.2/draw
 
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs  | sh -s -- -y && \
     . $HOME/.cargo/env && \
-    rustup install 1.83.0 && \
-    rustup default 1.83.0
+    rustup install 1.85.0 && \
+    rustup default 1.85.0 && \
+    cargo install cargo-modules@0.23.1
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+ENV CARGO_HOME="/root/.cargo"
 
 RUN . $HOME/.cargo/env  && python3 -m pip install --verbose \
     sphinx==8.1.3 \
@@ -26,7 +30,7 @@ RUN . $HOME/.cargo/env  && python3 -m pip install --verbose \
     sphinx-toolbox==3.8.1 \
     sphinxcontrib-programoutput==0.18 \
     pyserial==3.5 \
-    sphinxcontrib-rust==0.6.4 \
+    sphinxcontrib-rust==0.8.1 \
     sphinx-needs==4.1.0 \
     sphinx-gherkindoc==3.6.4 \
     setuptools==75.6.0 \

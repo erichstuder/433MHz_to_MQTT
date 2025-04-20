@@ -1,13 +1,15 @@
 //! This is the main file of the firmware.
-//! The pieces are set up, connected together and started.
+//! The pieces are set up, connected and the tasks are spawned.
+//!
+//! Following is just a simple example of how to use plantuml to generate diagrams.
+//! I had this idea but these diagrams rot quickly. So they won't be used.
 //!
 //! .. plantuml::
 //!
 //!    @startuml
 //!
-//!    main *-- persistency
-//!    main *-- remote_receiver
-//!    main *-- usb_communication
+//!    module1 *-- module2
+//!    module1 *-- module3
 //!
 //!    @enduml
 

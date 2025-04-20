@@ -1,3 +1,5 @@
+//! Sets up and handles the MQTT connection.
+
 use cfg_if::cfg_if;
 
 cfg_if! {

@@ -1,3 +1,5 @@
+//! Reads button presses and sends them out.
+
 use cfg_if::cfg_if;
 
 cfg_if! {

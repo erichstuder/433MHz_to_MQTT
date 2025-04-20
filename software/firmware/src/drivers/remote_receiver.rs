@@ -1,13 +1,4 @@
-//! This module receives data from the remote.
-//! Besides some platform specific stuff, it aggregates :doc:`buttons`.
-//!
-//! .. plantuml::
-//!
-//!    @startuml
-//!
-//!    RemoteReceiver o-- Buttons
-//!
-//!    @enduml
+//! Receives data from the remote.
 
 use cfg_if::cfg_if;
 use {defmt_rtt as _, panic_probe as _};

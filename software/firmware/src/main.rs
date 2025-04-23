@@ -18,15 +18,9 @@
 
 use cfg_if::cfg_if;
 use {defmt_rtt as _, panic_probe as _};
-use embassy_sync::mutex::Mutex;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
 mod tasks;
 mod drivers;
-
-use crate::drivers::persistency::Persistency;
-
-type PersistencyMutexed = Mutex<CriticalSectionRawMutex, Persistency>;
 
 cfg_if! {
     if #[cfg(not(test))] {
@@ -37,18 +31,20 @@ cfg_if! {
         use embassy_rp::peripherals::{PIO0, PIO1};
         use embassy_rp::usb;
         use embassy_usb::class::cdc_acm;
+        use embassy_sync::mutex::Mutex;
+        use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
         use static_cell::StaticCell;
 
         use crate::tasks::button_task;
         use crate::tasks::terminal_task;
         use crate::drivers::mqtt::{MQTT, WifiHw};
         use crate::drivers::usb_communication::UsbCommunication;
+        use crate::drivers::persistency::Persistency;
 
         type UsbSenderMutexed = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
         type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
     }
 }
-
 
 #[cfg(not(test))]
 #[main]
@@ -63,14 +59,10 @@ async fn main(spawner: Spawner) {
         (USB_SENDER.init(Mutex::new(usb_sender)), usb_receiver)
     };
 
-    // Multiple writers to persistency, so it is mutexed and made static to be shared between tasks.
-    let persistency_mutexed = {
-        let persistency = Persistency::new(peripherals.FLASH, peripherals.DMA_CH0);
-        static PERSISTENCY: StaticCell<PersistencyMutexed> = StaticCell::new();
-        PERSISTENCY.init(Mutex::new(persistency))
-    };
+    static PERSISTENCY: StaticCell<Persistency> = StaticCell::new();
+    let persistency = PERSISTENCY.init(Persistency::new(peripherals.FLASH, peripherals.DMA_CH0));
 
-    spawner.spawn(terminal_task::run(persistency_mutexed, usb_receiver, usb_sender_mutexed)).unwrap();
+    spawner.spawn(terminal_task::run(persistency, usb_receiver, usb_sender_mutexed)).unwrap();
 
     bind_interrupts!(struct Pio1Irqs {
         PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
@@ -85,7 +77,7 @@ async fn main(spawner: Spawner) {
         dma_ch1: peripherals.DMA_CH1,
     };
 
-    let mqtt = MQTT::new(persistency_mutexed, wifi_hw, spawner).await.unwrap();
+    let mqtt = MQTT::new(persistency, wifi_hw, spawner).await.unwrap();
 
     bind_interrupts!(struct Pio0Irqs {
         PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;

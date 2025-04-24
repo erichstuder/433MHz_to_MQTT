@@ -10,14 +10,14 @@ cfg_if! {
 
         use crate::drivers::remote_receiver::RemoteReceiver;
         use crate::drivers::mqtt::MQTT;
-        use crate::UsbSenderMutexed;
+        use crate::drivers::usb_communication::UsbSender;
         use crate::drivers::buttons::Buttons;
     }
 }
 
 #[cfg(not(test))]
 #[task]
-pub async fn run(mut pio: Pio<'static, PIO0>, receiver_pin: PIN_28, _usb_sender: &'static UsbSenderMutexed, mut mqtt: MQTT) {
+pub async fn run(mut pio: Pio<'static, PIO0>, receiver_pin: PIN_28, _usb_sender: &'static UsbSender, mut mqtt: MQTT) {
     // It would be nice to have generic types for pio and receiver_pin but I couldn't figure out how to do it.
 
     let buttons = Buttons::new();

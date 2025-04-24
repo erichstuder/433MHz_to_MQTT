@@ -8,16 +8,14 @@ cfg_if! {
         use embassy_executor::task;
         use crate::drivers::parser::{self, Parser};
         use crate::drivers::persistency::{Persistency, ParserToPersistency};
-        use crate::drivers::usb_communication;
-        use crate::UsbSenderMutexed;
-        use crate::UsbReceiver;
+        use crate::drivers::usb_communication::{self, UsbReceiver, UsbSender};
         use embassy_usb::driver::EndpointError;
     }
 }
 
 #[cfg(not(test))]
 #[task]
-pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSenderMutexed) {
+pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSender) {
     struct EnterBootloader;
     impl parser::EnterBootloaderTrait for EnterBootloader {
         fn call(&mut self) {
@@ -33,18 +31,14 @@ pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceive
     let mut ignore_message = false;
 
     loop {
-        usb_receiver.wait_connection().await;
         let byte_cnt = match usb_receiver.read_packet(&mut bytes).await {
             Ok(byte_cnt) => byte_cnt,
             Err(e) => {
                 match e {
                     EndpointError::BufferOverflow => {
-                        let mut sender = usb_sender.lock().await;
-                        sender.write_packet("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
-                        for chunk in bytes.chunks(sender.max_packet_size() as usize) {
-                            sender.write_packet(chunk).await.unwrap();
-                        }
-                        sender.write_packet("... The system now shuts down. Goodbye.\n".as_bytes()).await.unwrap();
+                        usb_sender.send("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
+                        usb_sender.send(&bytes).await.unwrap();
+                        usb_sender.send("... The system now shuts down. Goodbye.\n".as_bytes()).await.unwrap();
                         // This should never ever happen. So a panic is appropriate.
                         panic!("receive buffer overflow");
                     },
@@ -63,17 +57,16 @@ pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceive
                 }
                 else {
                     let mut answer = [0u8; 100];
-                    let mut sender = usb_sender.lock().await;
                     match parser.parse_message(&receive_buffer[..receive_buffer_index], &mut answer).await {
                         Ok(length) => {
-                            sender.write_packet(&answer[..length]).await.unwrap();
+                            usb_sender.send(&answer[..length]).await.unwrap();
                         },
                         Err(e) => {
-                            sender.write_packet(&"ERROR: ".as_bytes()).await.unwrap();
-                            sender.write_packet(&e.as_bytes()).await.unwrap();
+                            usb_sender.send(&"ERROR: ".as_bytes()).await.unwrap();
+                            usb_sender.send(&e.as_bytes()).await.unwrap();
                         },
                     };
-                    sender.write_packet("\n".as_bytes()).await.unwrap();
+                    usb_sender.send("\n".as_bytes()).await.unwrap();
                 }
                 receive_buffer_index = 0;
             }
@@ -83,12 +76,8 @@ pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceive
                     receive_buffer_index += 1;
                 } else {
                     ignore_message = true;
-                    let mut sender = usb_sender.lock().await;
-                    sender.write_packet("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
-                    for chunk in receive_buffer.chunks(sender.max_packet_size() as usize) {
-                        sender.write_packet(chunk).await.unwrap();
-                    }
-                    sender.write_packet("...\n".as_bytes()).await.unwrap();
+                    usb_sender.send("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
+                    usb_sender.send("...\n".as_bytes()).await.unwrap();
                     receive_buffer_index = 0;
                 }
             }

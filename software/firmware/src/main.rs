@@ -27,22 +27,14 @@ cfg_if! {
         use embassy_executor::{Spawner, main};
         use embassy_rp::bind_interrupts;
         use embassy_rp::pio::{self, Pio};
-        use embassy_rp::peripherals::USB;
         use embassy_rp::peripherals::{PIO0, PIO1};
-        use embassy_rp::usb;
-        use embassy_usb::class::cdc_acm;
-        use embassy_sync::mutex::Mutex;
-        use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
         use static_cell::StaticCell;
 
         use crate::tasks::button_task;
         use crate::tasks::terminal_task;
         use crate::drivers::mqtt::{MQTT, WifiHw};
-        use crate::drivers::usb_communication::UsbCommunication;
+        use crate::drivers::usb_communication::{self, UsbSender};
         use crate::drivers::persistency::Persistency;
-
-        type UsbSenderMutexed = Mutex<CriticalSectionRawMutex, cdc_acm::Sender<'static, usb::Driver<'static, USB>>>;
-        type UsbReceiver = cdc_acm::Receiver<'static, usb::Driver<'static, USB>>;
     }
 }
 
@@ -50,19 +42,15 @@ cfg_if! {
 #[main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
-    let mut usb_communication = UsbCommunication::new(peripherals.USB);
 
-    // Multiple writers to USB, so it is mutexed and made static to be shared between tasks.
-    let (usb_sender_mutexed, usb_receiver) = {
-        let (usb_sender, usb_receiver) = usb_communication.cdc_acm_class.split();
-        static USB_SENDER: StaticCell<UsbSenderMutexed> = StaticCell::new();
-        (USB_SENDER.init(Mutex::new(usb_sender)), usb_receiver)
-    };
+    let (usb_receiver, usb_sender) = usb_communication::create(peripherals.USB, spawner);
+    static USB_SENDER: StaticCell<UsbSender> = StaticCell::new();
+    let usb_sender = USB_SENDER.init(usb_sender);
 
     static PERSISTENCY: StaticCell<Persistency> = StaticCell::new();
     let persistency = PERSISTENCY.init(Persistency::new(peripherals.FLASH, peripherals.DMA_CH0));
 
-    spawner.spawn(terminal_task::run(persistency, usb_receiver, usb_sender_mutexed)).unwrap();
+    spawner.spawn(terminal_task::run(persistency, usb_receiver, usb_sender)).unwrap();
 
     bind_interrupts!(struct Pio1Irqs {
         PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
@@ -83,7 +71,5 @@ async fn main(spawner: Spawner) {
         PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
     });
     let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
-    spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender_mutexed, mqtt)).unwrap();
-
-    usb_communication.usb.run().await;
+    spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender, mqtt)).unwrap();
 }

@@ -6,7 +6,7 @@ cfg_if! {
     if #[cfg(not(test))] {
         use core::panic;
         use embassy_executor::task;
-        use crate::drivers::parser::{self, Parser};
+        use crate::drivers::parser::Parser;
         use crate::drivers::persistency::{Persistency, ParserToPersistency};
         use crate::drivers::usb_communication::{self, UsbReceiver, UsbSender};
         use embassy_usb::driver::EndpointError;
@@ -16,15 +16,8 @@ cfg_if! {
 #[cfg(not(test))]
 #[task]
 pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSender) {
-    struct EnterBootloader;
-    impl parser::EnterBootloaderTrait for EnterBootloader {
-        fn call(&mut self) {
-            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
-        }
-    }
-
     let parser_to_persistency = ParserToPersistency::new(persistency);
-    let mut parser = Parser::new(EnterBootloader, parser_to_persistency);
+    let mut parser = Parser::new(parser_to_persistency);
     let mut bytes = [0u8; usb_communication::MAX_PACKET_SIZE as usize];
     let mut receive_buffer = [0u8; 128];
     let mut receive_buffer_index = 0usize;

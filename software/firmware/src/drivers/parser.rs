@@ -2,14 +2,6 @@
 
 use core::future::Future;
 
-#[cfg(test)]
-use mockall::automock;
-
-#[cfg_attr(test, automock)]
-pub trait EnterBootloaderTrait {
-    fn call(&mut self);
-}
-
 pub trait PersistencyTrait{
     fn store<'a>(&'a mut self, value: &'a [u8], field: ValueId) -> impl Future<Output = ()> + 'a;
     fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a;
@@ -24,15 +16,13 @@ pub enum ValueId {
     MqttBrokerPassword,
 }
 
-pub struct Parser<E: EnterBootloaderTrait, P: PersistencyTrait> {
-    enter_bootloader: E,
+pub struct Parser<P: PersistencyTrait> {
     persistency: P,
 }
 
-impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
-    pub fn new(enter_bootloader: E, persistency: P) -> Self {
+impl<P: PersistencyTrait> Parser<P> {
+    pub fn new(persistency: P) -> Self {
         Self {
-            enter_bootloader,
             persistency,
         }
     }
@@ -105,7 +95,7 @@ impl<E: EnterBootloaderTrait, P: PersistencyTrait> Parser<E, P> {
         const STORE_COMMAND: &[u8] = b"store ";
         const READ_COMMAND: &[u8] = b"read ";
         if msg == b"enter bootloader" {
-            self.enter_bootloader.call();
+            embassy_rp::rom_data::reset_to_usb_boot(0, 0);
             // Note: probably this message won't be seen, because of immediate restart.
             Ok(Self::copy_to_beginning(answer, b"entering bootloader now"))
         } else if msg == b"ping" {
@@ -211,28 +201,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_enter_bootloader() {
-        //let mut mock_send_message = MockSendMessage::new();
-        let mut mock_enter_bootloader = MockEnterBootloaderTrait::new();
-
-        mock_enter_bootloader.expect_call()
-            .times(1)
-            .returning(|| ());
-
-        let mut parser = Parser::new(
-            mock_enter_bootloader,
-            MockPersistency::new(),
-        );
-
-        let mut answer: [u8; 32] = ['1' as u8; 32];
-        let length = parser.parse_message(b"enter bootloader", &mut answer).await.unwrap();
-        assert_eq!(&answer[..length], b"entering bootloader now");
-    }
-
-    #[tokio::test]
     async fn test_ping_pong() {
         let mut parser = Parser::new(
-            MockEnterBootloaderTrait::new(),
             MockPersistency::new(),
         );
 
@@ -256,7 +226,6 @@ mod tests {
             let (store_call_count, last_store_value_id, last_store_value) = mock_persistency.get_store_infos();
 
             let mut parser = Parser::new(
-                MockEnterBootloaderTrait::new(),
                 mock_persistency,
             );
 
@@ -291,7 +260,6 @@ mod tests {
             mock_persistency.set_read_value_return(Vec::from(value));
 
             let mut parser = Parser::new(
-                MockEnterBootloaderTrait::new(),
                 mock_persistency,
             );
 
@@ -310,7 +278,6 @@ mod tests {
     #[tokio::test]
     async fn test_nothing_to_parse() {
         let mut parser = Parser::new(
-            MockEnterBootloaderTrait::new(),
             MockPersistency::new(),
         );
 

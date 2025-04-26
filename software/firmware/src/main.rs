@@ -67,11 +67,11 @@ async fn main(spawner: Spawner) {
         dma_ch1: peripherals.DMA_CH1,
     };
 
-    let mqtt = MQTT::new(persistency, wifi_hw, spawner).await.unwrap();
-
-    bind_interrupts!(struct Pio0Irqs {
-        PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
-    });
-    let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
-    spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender, mqtt)).unwrap();
+    if let Some(mqtt) = MQTT::new(persistency, wifi_hw, spawner).await {
+        bind_interrupts!(struct Pio0Irqs {
+            PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
+        });
+        let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
+        spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender, mqtt)).unwrap();
+    }
 }

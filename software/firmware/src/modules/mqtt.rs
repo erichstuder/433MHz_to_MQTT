@@ -101,7 +101,10 @@ impl MQTT {
             mqtt_broker_password: String::new(),
         };
 
-        Self::get_credentials(persistency, &mut credentials).await.unwrap();
+        if let Err(msg) = Self::get_credentials(persistency, &mut credentials).await {
+            error!("Error getting credentials: {}", msg);
+            return None;
+        }
 
         static MQTT_BROKER_USERNAME: StaticCell<String<MQTT_BROKER_USERNAME_LENGTH>> = StaticCell::new();
         let mqtt_broker_username = MQTT_BROKER_USERNAME.init(credentials.mqtt_broker_username.clone());

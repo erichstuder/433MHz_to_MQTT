@@ -71,6 +71,7 @@ pub async fn run(mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSender, 
                 } else {
                     ignore_message = true;
                     usb_sender.send("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
+                    usb_sender.send(&receive_buffer).await.unwrap();
                     usb_sender.send("...\n".as_bytes()).await.unwrap();
                     receive_buffer_index = 0;
                 }

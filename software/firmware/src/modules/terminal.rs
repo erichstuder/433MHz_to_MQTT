@@ -50,7 +50,7 @@ pub async fn run(mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSender, 
                     ignore_message = false;
                 }
                 else {
-                    let mut answer = [0u8; 100];
+                    let mut answer = [0u8; 300];
                     match parser.parse_message(&receive_buffer[..receive_buffer_index], &mut answer).await {
                         Ok(length) => {
                             usb_sender.send(&answer[..length]).await.unwrap();

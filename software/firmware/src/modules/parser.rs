@@ -46,7 +46,7 @@ where P: PersistencyTrait,
             Ok(())
         }
         else {
-            Err("unknown store parameter")
+            Err("unknown store parameter, type 'read help' for help ('store help' not yet available)")
         }
     }
 
@@ -66,8 +66,18 @@ where P: PersistencyTrait,
         else if parameters.starts_with(b"mqtt_broker_password") {
             self.persistency.read(ValueId::MqttBrokerPassword, answer).await
         }
+        else if parameters.starts_with(b"help") {
+            Ok(Self::copy_to_beginning(answer, concat!(
+                "read value names:\n",
+                "wifi_ssid\n",
+                "wifi_password\n",
+                "mqtt_host_ip\n",
+                "mqtt_broker_username\n",
+                "mqtt_broker_password"
+            ).as_bytes()))
+        }
         else {
-            Err("unknown read parameter")
+            Err("unknown value name, type 'read help' for help")
         }
     }
 
@@ -78,19 +88,32 @@ where P: PersistencyTrait,
             embassy_rp::rom_data::reset_to_usb_boot(0, 0);
             // Note: probably this message won't be seen, because of immediate restart.
             Ok(Self::copy_to_beginning(answer, b"entering bootloader now"))
-        } else if msg == b"ping" {
+        }
+        else if msg == b"ping" {
             Ok(Self::copy_to_beginning(answer, b"pong"))
-        } else if msg.starts_with(STORE_COMMAND) {
+        }
+        else if msg.starts_with(STORE_COMMAND) {
             let parameters = &msg[STORE_COMMAND.len()..];
             match self.parse_store_command(parameters).await {
                 Ok(_) => Ok(0),
                 Err(e) => Err(e),
             }
-        } else if msg.starts_with(READ_COMMAND) {
+        }
+        else if msg.starts_with(READ_COMMAND) {
             let parameters = &msg[READ_COMMAND.len()..];
             self.parse_read_command(parameters, answer).await
+        }
+        else if msg.starts_with(b"help") {
+            Ok(Self::copy_to_beginning(answer, concat!(
+                "commands:\n",
+                "enter bootloader           : enters the bootloader to flash via usb\n",
+                "ping                       : results in 'pong'\n",
+                "store <value_name> <value> : stores a value persistently\n",
+                "read <value_name>          : reads a persistent value\n",
+                "help                       : prints this help"
+            ).as_bytes()))
         } else {
-            Ok(Self::copy_to_beginning(answer, b"nothing to parse"))
+            Ok(Self::copy_to_beginning(answer, b"not a valid command, type 'help' for help"))
         }
     }
 

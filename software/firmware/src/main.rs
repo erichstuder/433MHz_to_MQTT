@@ -19,8 +19,7 @@
 use cfg_if::cfg_if;
 use {defmt_rtt as _, panic_probe as _};
 
-mod tasks;
-mod drivers;
+mod modules;
 
 cfg_if! {
     if #[cfg(not(test))] {
@@ -30,12 +29,12 @@ cfg_if! {
         use embassy_rp::peripherals::{PIO0, PIO1};
         use static_cell::StaticCell;
 
-        use crate::tasks::button_task;
-        use crate::tasks::terminal;
-        use crate::drivers::mqtt::{MQTT, WifiHw};
-        use crate::drivers::usb_communication::{self, UsbSender};
-        use crate::drivers::persistency::Persistency;
-        use crate::drivers::parser::Parser;
+        use crate::modules::button_task;
+        use crate::modules::terminal;
+        use crate::modules::mqtt::{MQTT, WifiHw};
+        use crate::modules::usb_communication::{self, UsbSender};
+        use crate::modules::persistency::Persistency;
+        use crate::modules::parser::Parser;
     }
 }
 

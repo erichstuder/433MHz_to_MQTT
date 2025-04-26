@@ -23,7 +23,7 @@ cfg_if! {
         use embassy_sync::mutex::Mutex;
         use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
-        use crate::drivers::persistency::{self, PersistencyTrait};
+        use crate::modules::persistency::{self, PersistencyTrait};
 
         type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>>;
 

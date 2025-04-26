@@ -6,12 +6,12 @@ cfg_if! {
     if #[cfg(not(test))] {
         use core::panic;
         use embassy_executor::task;
-        use crate::drivers::parser::Parser;
+        use crate::modules::parser::Parser;
 
         // Note: This dependency should be removed. But as embassy::task does not support generics it cant be replaced with trait.
-        use crate::drivers::persistency::Persistency;
+        use crate::modules::persistency::Persistency;
 
-        use crate::drivers::usb_communication::{self, UsbReceiver, UsbSender};
+        use crate::modules::usb_communication::{self, UsbReceiver, UsbSender};
         use embassy_usb::driver::EndpointError;
     }
 }

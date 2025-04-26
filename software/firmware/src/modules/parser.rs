@@ -1,6 +1,6 @@
 //! Parses received messages, forwards them accordingly and returns the answer.
 
-use crate::drivers::persistency::{ValueId, PersistencyTrait};
+use crate::modules::persistency::{ValueId, PersistencyTrait};
 
 pub struct Parser<'a, P: PersistencyTrait> {
     persistency: &'a P,
@@ -105,7 +105,7 @@ where P: PersistencyTrait,
 mod tests {
     use super::*;
     use tokio;
-    use crate::drivers::persistency::MockPersistencyTrait;
+    use crate::modules::persistency::MockPersistencyTrait;
 
     #[tokio::test]
     async fn test_ping_pong() {

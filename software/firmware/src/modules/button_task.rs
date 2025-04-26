@@ -8,10 +8,10 @@ cfg_if! {
         use embassy_rp::pio::Pio;
         use embassy_rp::peripherals::{PIO0, PIN_28};
 
-        use crate::drivers::remote_receiver::RemoteReceiver;
-        use crate::drivers::mqtt::MQTT;
-        use crate::drivers::usb_communication::UsbSender;
-        use crate::drivers::buttons::Buttons;
+        use crate::modules::remote_receiver::RemoteReceiver;
+        use crate::modules::mqtt::MQTT;
+        use crate::modules::usb_communication::UsbSender;
+        use crate::modules::buttons::Buttons;
     }
 }
 

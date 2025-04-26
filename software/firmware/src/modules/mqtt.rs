@@ -259,7 +259,7 @@ impl MQTT {
     #[cfg(not(test))]
     pub async fn send_message(&mut self, payload: &[u8]) {
         let mut client = self.client_mutexed.lock().await;
-        let result = client.send_message("433", payload, rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await;
+        let result = client.send_message("433MHz_to_MQTT_button", payload, rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await;
         match result {
             Ok(()) => info!("message sent"),
             Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),

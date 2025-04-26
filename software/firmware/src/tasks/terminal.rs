@@ -7,7 +7,10 @@ cfg_if! {
         use core::panic;
         use embassy_executor::task;
         use crate::drivers::parser::Parser;
-        use crate::drivers::persistency::{Persistency, ParserToPersistency};
+
+        // Note: This dependency should be removed. But as embassy::task does not support generics it cant be replaced with trait.
+        use crate::drivers::persistency::Persistency;
+
         use crate::drivers::usb_communication::{self, UsbReceiver, UsbSender};
         use embassy_usb::driver::EndpointError;
     }
@@ -15,9 +18,7 @@ cfg_if! {
 
 #[cfg(not(test))]
 #[task]
-pub async fn run(persistency: &'static Persistency, mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSender) {
-    let parser_to_persistency = ParserToPersistency::new(persistency);
-    let mut parser = Parser::new(parser_to_persistency);
+pub async fn run(mut usb_receiver: UsbReceiver, usb_sender: &'static UsbSender, mut parser: Parser<'static, Persistency>) -> ! {
     let mut bytes = [0u8; usb_communication::MAX_PACKET_SIZE as usize];
     let mut receive_buffer = [0u8; 128];
     let mut receive_buffer_index = 0usize;

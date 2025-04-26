@@ -31,10 +31,11 @@ cfg_if! {
         use static_cell::StaticCell;
 
         use crate::tasks::button_task;
-        use crate::tasks::terminal_task;
+        use crate::tasks::terminal;
         use crate::drivers::mqtt::{MQTT, WifiHw};
         use crate::drivers::usb_communication::{self, UsbSender};
         use crate::drivers::persistency::Persistency;
+        use crate::drivers::parser::Parser;
     }
 }
 
@@ -50,7 +51,9 @@ async fn main(spawner: Spawner) {
     static PERSISTENCY: StaticCell<Persistency> = StaticCell::new();
     let persistency = PERSISTENCY.init(Persistency::new(peripherals.FLASH, peripherals.DMA_CH0));
 
-    spawner.spawn(terminal_task::run(persistency, usb_receiver, usb_sender)).unwrap();
+    let parser = Parser::new(persistency);
+
+    spawner.spawn(terminal::run(usb_receiver, usb_sender, parser)).unwrap();
 
     bind_interrupts!(struct Pio1Irqs {
         PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;

@@ -23,7 +23,7 @@ cfg_if! {
         use embassy_sync::mutex::Mutex;
         use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
-        use crate::drivers::persistency::{self, Persistency};
+        use crate::drivers::persistency::{self, PersistencyTrait};
 
         type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>>;
 
@@ -58,7 +58,9 @@ pub struct MQTT {
 
 impl MQTT {
     #[cfg(not(test))]
-    pub async fn new(persistency: &'static Persistency, mut hw: WifiHw, spawner: Spawner) -> Option<Self> {
+    pub async fn new<P>(persistency: &'static P, mut hw: WifiHw, spawner: Spawner) -> Option<Self>
+    where P: PersistencyTrait,
+    {
         let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
         let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
 
@@ -189,7 +191,9 @@ impl MQTT {
 
     // TODO: Test for this function as soon as PersistencyMutexed can easily be mocked, if ever.
     #[cfg(not(test))]
-    async fn get_credentials(persistency: &Persistency, credentials: &mut Credentials) -> Result<(), &'static str> {
+    async fn get_credentials<P>(persistency: &P, credentials: &mut Credentials) -> Result<(), &'static str>
+    where P: PersistencyTrait,
+    {
 
         let mut wifi_ssid = ['\0' as u8; 32];
         match persistency.read(persistency::ValueId::WifiSsid, &mut wifi_ssid).await {

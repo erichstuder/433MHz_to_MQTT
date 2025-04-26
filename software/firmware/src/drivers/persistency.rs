@@ -5,9 +5,6 @@ use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::FLASH;
 #[cfg(not(test))]
 use embassy_rp::peripherals::DMA_CH0;
-use core::future::Future;
-
-use crate::drivers::parser;
 
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -17,6 +14,13 @@ const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
 const DATA_SIZE: usize = flash::ERASE_SIZE; // must be a multiple of ERASE_SIZE.
 const DATA_ADDRESS_OFFSET: usize = FLASH_SIZE - flash::ERASE_SIZE; // put data at the end of flash memory.
 const FILE_DESCRIPTOR_SIZE: usize = 5;
+
+
+#[cfg_attr(test, mockall::automock)]
+pub trait PersistencyTrait{
+    async fn store<'a>(&'a self, value: &'a [u8], field: ValueId);
+    async fn read<'a>(&'a self, field: ValueId, answer: &'a mut [u8]) -> Result<usize, &'static str>;
+}
 
 type PersistencyMutexed = Mutex<CriticalSectionRawMutex, PersistencyUnprotected>;
 
@@ -30,13 +34,15 @@ impl Persistency {
         let persistency = PersistencyUnprotected::new(flash, dma);
         Self { persistency_mutexed: PersistencyMutexed::new(persistency) }
     }
+}
 
-    pub async fn read(&self, value_id: ValueId, answer: &mut [u8]) -> Result<usize, &'static str> {
+impl PersistencyTrait for Persistency {
+    async fn read(&self, value_id: ValueId, answer: &mut [u8]) -> Result<usize, &'static str> {
         let mut persistency = self.persistency_mutexed.lock().await;
         persistency.read(value_id, answer)
     }
 
-    pub async fn store(&self, value_data: &[u8], value_id: ValueId) {
+    async fn store(&self, value_data: &[u8], value_id: ValueId) {
         let mut persistency = self.persistency_mutexed.lock().await;
         persistency.store(value_data, value_id);
     }
@@ -87,43 +93,6 @@ impl PersistencyUnprotected{
         }
 
         self.filesystem.update_values_indexes();
-    }
-}
-
-pub struct ParserToPersistency {
-    persistency: &'static Persistency,
-}
-
-#[cfg(not(test))]
-impl ParserToPersistency {
-    pub fn new(persistency: &'static Persistency) -> Self {
-        Self { persistency, }
-    }
-}
-
-impl parser::PersistencyTrait for ParserToPersistency {
-    fn store<'a>(&'a mut self, value: &'a [u8], value_id: parser::ValueId) -> impl Future<Output = ()> + 'a {
-        async move {
-            match value_id {
-                parser::ValueId::WifiSsid           => self.persistency.store(value, ValueId::WifiSsid).await,
-                parser::ValueId::WifiPassword       => self.persistency.store(value, ValueId::WifiPassword).await,
-                parser::ValueId::MqttHostIp         => self.persistency.store(value, ValueId::MqttHostIp).await,
-                parser::ValueId::MqttBrokerUsername => self.persistency.store(value, ValueId::MqttBrokerUsername).await,
-                parser::ValueId::MqttBrokerPassword => self.persistency.store(value, ValueId::MqttBrokerPassword).await,
-            }
-        }
-    }
-
-    fn read<'a>(&'a mut self, value_id: parser::ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a {
-        async move {
-            match value_id {
-                parser::ValueId::WifiSsid           => self.persistency.read(ValueId::WifiSsid, answer).await,
-                parser::ValueId::WifiPassword       => self.persistency.read(ValueId::WifiPassword, answer).await,
-                parser::ValueId::MqttHostIp         => self.persistency.read(ValueId::MqttHostIp, answer).await,
-                parser::ValueId::MqttBrokerUsername => self.persistency.read(ValueId::MqttBrokerUsername, answer).await,
-                parser::ValueId::MqttBrokerPassword => self.persistency.read(ValueId::MqttBrokerPassword, answer).await,
-            }
-        }
     }
 }
 

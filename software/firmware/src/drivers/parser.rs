@@ -1,38 +1,24 @@
 //! Parses received messages, forwards them accordingly and returns the answer.
 
-use core::future::Future;
+use crate::drivers::persistency::{ValueId, PersistencyTrait};
 
-pub trait PersistencyTrait{
-    fn store<'a>(&'a mut self, value: &'a [u8], field: ValueId) -> impl Future<Output = ()> + 'a;
-    fn read<'a>(&'a mut self, field: ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a;
+pub struct Parser<'a, P: PersistencyTrait> {
+    persistency: &'a P,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum ValueId {
-    WifiSsid,
-    WifiPassword,
-    MqttHostIp,
-    MqttBrokerUsername,
-    MqttBrokerPassword,
-}
-
-pub struct Parser<P: PersistencyTrait> {
-    persistency: P,
-}
-
-impl<P: PersistencyTrait> Parser<P> {
-    pub fn new(persistency: P) -> Self {
-        Self {
-            persistency,
-        }
+impl <'a, P> Parser<'a, P>
+where P: PersistencyTrait,
+{
+    pub fn new(persistency: &'a P) -> Self {
+        Self { persistency }
     }
 
     async fn parse_store_command(&mut self, parameters: &[u8]) -> Result<(), &'static str> {
         const WIFI_SSID: &[u8] = b"wifi_ssid ";
         const WIFI_PASSWORD: &[u8] = b"wifi_password ";
         const MQTT_HOST_IP: &[u8] = b"mqtt_host_ip ";
-        const MQTT_BROKER_USERNAME : &[u8] = b"mqtt_broker_username ";
-        const MQTT_BROKER_PASSWORD : &[u8] = b"mqtt_broker_password ";
+        const MQTT_BROKER_USERNAME: &[u8] = b"mqtt_broker_username ";
+        const MQTT_BROKER_PASSWORD: &[u8] = b"mqtt_broker_password ";
 
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
@@ -119,92 +105,12 @@ impl<P: PersistencyTrait> Parser<P> {
 mod tests {
     use super::*;
     use tokio;
-    use mockall::predicate::*;
-    use std::sync::{Arc, Mutex};
-
-    struct MockPersistency {
-        store_call_count: Arc<Mutex<u8>>,
-        last_store_value_id: Arc<Mutex<Option<ValueId>>>,
-        last_store_value: Arc<Mutex<Option<Vec<u8>>>>,
-
-        read_call_count: Arc<Mutex<u8>>,
-        last_read_value_id: Arc<Mutex<Option<ValueId>>>,
-        read_value_return: Arc<Mutex<Option<Vec<u8>>>>,
-    }
-
-    impl MockPersistency {
-        fn new() -> Self {
-            Self {
-                store_call_count: Arc::new(Mutex::new(0)),
-                last_store_value_id: Arc::new(Mutex::new(None)),
-                last_store_value: Arc::new(Mutex::new(None)),
-
-                read_call_count: Arc::new(Mutex::new(0)),
-                last_read_value_id: Arc::new(Mutex::new(None)),
-                read_value_return: Arc::new(Mutex::new(None)),
-            }
-        }
-
-        fn get_store_infos(&self) -> (Arc<Mutex<u8>>, Arc<Mutex<Option<ValueId>>>, Arc<Mutex<Option<Vec<u8>>>>) {
-            (Arc::clone(&self.store_call_count), Arc::clone(&self.last_store_value_id), Arc::clone(&self.last_store_value))
-        }
-
-        fn get_read_infos(&self) -> (Arc<Mutex<u8>>, Arc<Mutex<Option<ValueId>>>) {
-            (Arc::clone(&self.read_call_count), Arc::clone(&self.last_read_value_id))
-        }
-
-        fn set_read_value_return(&self, value: Vec<u8>) {
-            let mut read_value = self.read_value_return.lock().unwrap();
-            *read_value = Some(value);
-        }
-    }
-
-    impl PersistencyTrait for MockPersistency {
-        fn store<'a>(&'a mut self, value: &'a [u8], value_id: ValueId) -> impl Future<Output = ()> + 'a {
-            let store_call_count = Arc::clone(&self.store_call_count);
-            let mut count = store_call_count.lock().unwrap();
-            *count += 1;
-
-            let last_store_value_id = Arc::clone(&self.last_store_value_id);
-            let mut last_value = last_store_value_id.lock().unwrap();
-            *last_value = Some(value_id);
-
-            let last_store_value = Arc::clone(&self.last_store_value);
-            let mut last_value = last_store_value.lock().unwrap();
-            *last_value = Some(Vec::from(value));
-
-            async move {}
-        }
-
-        fn read<'a>(&'a mut self, value_id: ValueId, answer: &'a mut [u8]) -> impl Future<Output = Result<usize, &'static str>> + 'a {
-            let read_call_count = Arc::clone(&self.read_call_count);
-            let mut count = read_call_count.lock().unwrap();
-            *count += 1;
-
-            let last_read_value_id = Arc::clone(&self.last_read_value_id);
-            let mut last_value = last_read_value_id.lock().unwrap();
-            *last_value = Some(value_id);
-
-            async move {
-                let read_value_return = Arc::clone(&self.read_value_return);
-                let read_value = read_value_return.lock().unwrap();
-
-                if let Some(ref value) = *read_value {
-                    let len = value.len().min(answer.len()); // Ensure we don't overflow the `answer` buffer
-                    answer[..len].copy_from_slice(&value[..len]);
-                    Ok(len) // Return the number of bytes copied
-                } else {
-                    Err("No value set for read")
-                }
-            }
-        }
-    }
+    use crate::drivers::persistency::MockPersistencyTrait;
 
     #[tokio::test]
     async fn test_ping_pong() {
-        let mut parser = Parser::new(
-            MockPersistency::new(),
-        );
+        let mock_persistency = MockPersistencyTrait::new();
+        let mut parser = Parser::new(&mock_persistency);
 
         let mut answer: [u8; 32] = ['2' as u8; 32];
         let length = parser.parse_message(b"ping", &mut answer).await.unwrap();
@@ -222,12 +128,13 @@ mod tests {
         ];
 
         for (command, value, value_id) in commands {
-            let mock_persistency = MockPersistency::new();
-            let (store_call_count, last_store_value_id, last_store_value) = mock_persistency.get_store_infos();
+            let mut mock_persistency = MockPersistencyTrait::new();
+            mock_persistency.expect_store()
+                .times(1)
+                .withf(move |v, id| v == value && *id == value_id)
+                .returning(|_, _| ());
 
-            let mut parser = Parser::new(
-                mock_persistency,
-            );
+            let mut parser = Parser::new(&mock_persistency);
 
             let mut message = Vec::new();
             message.extend_from_slice(b"store ");
@@ -238,48 +145,54 @@ mod tests {
             let mut answer = ['\0' as u8; 0];
             let length = parser.parse_message(message.as_slice(), &mut answer).await.unwrap();
             assert_eq!(&answer[..length], b"");
-            assert_eq!(*store_call_count.lock().unwrap(), 1);
-            assert_eq!(*last_store_value_id.lock().unwrap(), Some(value_id));
-            assert_eq!(*last_store_value.lock().unwrap(), Some(Vec::from(value)));
         }
     }
 
     #[tokio::test]
     async fn test_read_command() {
-        let commands = vec![
-            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       ValueId::WifiSsid),
-            (b"wifi_password".as_ref(),        b"12345".as_ref(),         ValueId::WifiPassword),
-            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), ValueId::MqttHostIp),
-            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     ValueId::MqttBrokerUsername),
-            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     ValueId::MqttBrokerPassword),
+        const COMMANDS: &[( &[u8], &[u8], ValueId )] = &[
+            (b"wifi_ssid",            b"myValue",       ValueId::WifiSsid),
+            (b"wifi_password",        b"12345",         ValueId::WifiPassword),
+            (b"mqtt_host_ip",         b"this.is.no.ip", ValueId::MqttHostIp),
+            (b"mqtt_broker_username", b"UOWKDNDLE",     ValueId::MqttBrokerUsername),
+            (b"mqtt_broker_password", b"__::)()()",     ValueId::MqttBrokerPassword),
         ];
 
-        for (command, value, value_id) in commands {
-            let mock_persistency = MockPersistency::new();
-            let (read_call_count, last_read_value_id) = mock_persistency.get_read_infos();
-            mock_persistency.set_read_value_return(Vec::from(value));
+        let mut mock_persistency = MockPersistencyTrait::new();
+        for (_, value, value_id) in COMMANDS {
 
-            let mut parser = Parser::new(
-                mock_persistency,
-            );
+            mock_persistency.expect_read()
+                .times(1)
+                .withf(move |id, _| *id == *value_id)
+                .returning_st(move |_, answer| {
+                    answer[..value.len()].copy_from_slice(value);
+                    Ok(value.len())
+                });
+        }
 
+        let mut parser = Parser::new(&mock_persistency);
+
+        for (command, value, _) in COMMANDS {
             let mut message = Vec::new();
             message.extend_from_slice(b"read ");
             message.extend_from_slice(command);
 
             let mut answer = ['\0' as u8; 100];
             let length = parser.parse_message(message.as_slice(), &mut answer).await.unwrap();
-            assert_eq!(&answer[..length], value);
-            assert_eq!(*read_call_count.lock().unwrap(), 1);
-            assert_eq!(*last_read_value_id.lock().unwrap(), Some(value_id));
+            assert_eq!(&answer[..length], *value);
         }
     }
 
+    //TODO: add a test for a failing read
+
     #[tokio::test]
     async fn test_nothing_to_parse() {
-        let mut parser = Parser::new(
-            MockPersistency::new(),
-        );
+        let mut mock_persistency = MockPersistencyTrait::new();
+
+        mock_persistency.expect_read().never();
+        mock_persistency.expect_store().never();
+
+        let mut parser = Parser::new(&mock_persistency);
 
         let mut answer = ['\0' as u8; 20];
         let length = parser.parse_message(b"no command", &mut answer).await.unwrap();

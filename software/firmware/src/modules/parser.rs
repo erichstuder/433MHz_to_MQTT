@@ -113,7 +113,7 @@ where P: PersistencyTrait,
                 "help                       : prints this help"
             ).as_bytes()))
         } else {
-            Ok(Self::copy_to_beginning(answer, b"not a valid command, type 'help' for help"))
+            Err("not a valid command, type 'help' for help")
         }
     }
 
@@ -172,6 +172,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn invalid_store_value_name() {
+        let mock_persistency = MockPersistencyTrait::new();
+        let mut parser = Parser::new(&mock_persistency);
+
+        let mut answer = ['\0' as u8; 100];
+        match parser.parse_message(b"store dummy", &mut answer).await {
+            Ok(_) => assert!(false),
+            Err(msg) => assert!(msg == "unknown store parameter, type 'read help' for help ('store help' not yet available)"),
+        }
+    }
+
+    #[tokio::test]
     async fn test_read_command() {
         const COMMANDS: &[( &[u8], &[u8], ValueId )] = &[
             (b"wifi_ssid",            b"myValue",       ValueId::WifiSsid),
@@ -206,7 +218,17 @@ mod tests {
         }
     }
 
-    //TODO: add a test for a failing read
+    #[tokio::test]
+    async fn invalid_read_value_name() {
+        let mock_persistency = MockPersistencyTrait::new();
+        let mut parser = Parser::new(&mock_persistency);
+
+        let mut answer = ['\0' as u8; 100];
+        match parser.parse_message(b"read adfasdf", &mut answer).await {
+            Ok(_) => assert!(false),
+            Err(msg) => assert!(msg == "unknown value name, type 'read help' for help"),
+        }
+    }
 
     #[tokio::test]
     async fn test_nothing_to_parse() {
@@ -217,8 +239,10 @@ mod tests {
 
         let mut parser = Parser::new(&mock_persistency);
 
-        let mut answer = ['\0' as u8; 20];
-        let length = parser.parse_message(b"no command", &mut answer).await.unwrap();
-        assert_eq!(&answer[..length], b"nothing to parse");
+        let mut answer = ['\0' as u8; 300];
+        match parser.parse_message(b"no command", &mut answer).await {
+            Ok(_) => assert!(false),
+            Err(msg) => assert!(msg == "not a valid command, type 'help' for help"),
+        }
     }
 }

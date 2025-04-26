@@ -71,12 +71,6 @@ where P: PersistencyTrait,
         }
     }
 
-    fn copy_to_beginning(dest: &mut [u8], src: &[u8]) -> usize {
-        let len = src.len().min(dest.len());
-        dest[..len].copy_from_slice(&src[..len]);
-        len
-    }
-
     pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8]) -> Result<usize, &'static str> {
         const STORE_COMMAND: &[u8] = b"store ";
         const READ_COMMAND: &[u8] = b"read ";
@@ -98,6 +92,12 @@ where P: PersistencyTrait,
         } else {
             Ok(Self::copy_to_beginning(answer, b"nothing to parse"))
         }
+    }
+
+    fn copy_to_beginning(dest: &mut [u8], src: &[u8]) -> usize {
+        let len = src.len().min(dest.len());
+        dest[..len].copy_from_slice(&src[..len]);
+        len
     }
 }
 

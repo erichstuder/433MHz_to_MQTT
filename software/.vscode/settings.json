@@ -2,5 +2,6 @@
     "rust-analyzer.diagnostics.disabled": [
         "inactive-code"
     ],
+    "rust-analyzer.completion.autoimport.enable": false,
     "rust-analyzer.cfg.setTest": false
 }

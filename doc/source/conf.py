@@ -119,7 +119,7 @@ def run_gherkindoc(app: Sphinx):
 def run_cargo_modules(app: Sphinx):
     software_dependencies_path = os.path.join(app.srcdir, 'auto_generated/software_dependencies.png')
     cargo_process = subprocess.Popen(['cargo', 'modules', 'dependencies', '--manifest-path', '../software/firmware',
-                      '--no-externs', '--no-fns', '--no-owns', '--no-types'], stdout=subprocess.PIPE)
+                      '--no-externs', '--no-fns', '--no-owns', '--no-traits', '--no-types'], stdout=subprocess.PIPE)
     subprocess.run(['dot', '-Tpng', '-o', software_dependencies_path], stdin=cargo_process.stdout, check=True)
 
 def setup(app: Sphinx):

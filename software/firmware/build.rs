@@ -1,6 +1,10 @@
 use std::process::Command;
 
 fn main() {
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=.git/HEAD");
+    println!("cargo:rerun-if-changed=.git/index");
+
     let datetime = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
     println!("cargo:rustc-env=COMPILE_TIME={}", datetime);
 

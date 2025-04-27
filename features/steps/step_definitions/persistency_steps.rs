@@ -1,4 +1,4 @@
-use crate::world::MyWorld;
+use crate::MyWorld;
 use crate::rs232::{find_and_open_serial, clear_input_buffer, send, read};
 use cucumber::{given, when, then};
 
@@ -8,7 +8,7 @@ fn usb_connection(world: &mut MyWorld) {
     world.port = Some(port.expect("Serial port find and open failed"));
 }
 
-#[when(regex = r"^the command is sent: 'store (\w+) ([\w.]+)\\\\n'$")]
+#[when(regex = r"^the command is sent: 'store (\S+) (\S+)\\\\n'$")]
 fn send_store_command(world: &mut MyWorld, parameter_name: String, value_example: String) {
     let command = format!("store {} {}\n", parameter_name, value_example);
     if let Some(ref mut port) = world.port {
@@ -25,7 +25,7 @@ fn send_store_command(world: &mut MyWorld, parameter_name: String, value_example
 // }
 
 
-#[when(regex = r"^the command is sent: 'read (\w+)\\\\n'$")]
+#[when(regex = r"^the command is sent: 'read (\S+)\\\\n'$")]
 fn send_read_command(world: &mut MyWorld, parameter_name: String) {
     let command = format!("read {}\n", parameter_name);
     if let Some(ref mut port) = world.port {
@@ -36,7 +36,7 @@ fn send_read_command(world: &mut MyWorld, parameter_name: String) {
     }
 }
 
-#[then(regex = r"^the answer is: '([\w.]+)\\\\n'$")]
+#[then(regex = r"^the answer is: '(\S+)\\\\n'$")]
 fn verify_answer(world: &mut MyWorld, expected_value: String) {
     if let Some(ref mut port) = world.port {
         let answer = String::from_utf8(read(port)).expect("Failed to read from serial port");

@@ -111,6 +111,11 @@ impl MQTT {
         static MQTT_BROKER_PASSWORD: StaticCell<String<MQTT_BROKER_PASSWORD_LENGTH>> = StaticCell::new();
         let mqtt_broker_password = MQTT_BROKER_PASSWORD.init(credentials.mqtt_broker_password.clone());
 
+        if credentials.wifi_password.len() < 8 {
+            error!("WIFI Password is too short: {}", credentials.wifi_password);
+            return None;
+        }
+
         loop {
             match control.join(credentials.wifi_ssid.as_str(), JoinOptions::new(credentials.wifi_password.as_bytes())).await {
                 Ok(_) => {

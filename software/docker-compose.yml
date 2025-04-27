@@ -7,11 +7,12 @@ services:
         USER: ${USER}
         UID: ${UID}
     volumes:
-      - .:/home/${USER}/software
-      - ../project_management:/home/${USER}/project_management
+      - ..:/home/${USER}/project
       - /media/${USER}:/media/${USER}
       - /dev/bus/usb:/dev/bus/usb
-    working_dir: /home/${USER}/software
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+    working_dir: /home/${USER}/project/software
     stdin_open: true
     tty: true
     privileged: true

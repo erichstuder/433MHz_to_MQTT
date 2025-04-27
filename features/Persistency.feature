@@ -15,9 +15,14 @@ Feature: Persistency
         Then the answer is: '<value_example>\\n'
 
         Examples:
-        | parameter            | parameter_name       | value_example   |
-        | Wi-Fi SSID           | wifi_ssid            | this_is_an_ssid |
-        | Wi-Fi Password       | wifi_password        | wifi_password   |
-        | MQTT Host IP         | mqtt_host_ip         | 123.456.78.9    |
-        | MQTT Broker Username | mqtt_broker_username | username_123    |
-        | MQTT Broker Password | mqtt_broker_password | mqtt_password   |
+        | parameter            | parameter_name       | value_example        |
+        | Wi-Fi SSID           | wifi_ssid            | this_is_an_ssid      |
+        | Wi-Fi SSID           | wifi_ssid            | this-is-another-ssid |
+        | Wi-Fi Password       | wifi_password        | wifi_password        |
+        | Wi-Fi Password       | wifi_password        | ***                  |
+        | MQTT Host IP         | mqtt_host_ip         | 123.456.78.9         |
+        | MQTT Host IP         | mqtt_host_ip         | nonsense             |
+        | MQTT Broker Username | mqtt_broker_username | username_123         |
+        | MQTT Broker Username | mqtt_broker_username | godfather            |
+        | MQTT Broker Password | mqtt_broker_password | mqtt_password        |
+        | MQTT Broker Password | mqtt_broker_password | no+soup+for+you      |

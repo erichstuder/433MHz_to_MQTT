@@ -1,4 +1,4 @@
-use udev::{Enumerator, /*Device*/};
+use udev::Enumerator;
 use std::time::Duration;
 use serialport::SerialPort;
 

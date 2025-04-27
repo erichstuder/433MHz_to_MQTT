@@ -4,10 +4,10 @@ version = "1.0.0" # This is a project-internal package, so the version doesn't m
 edition = "2021"
 
 [dependencies]
-cucumber = "0.21.1"
-tokio = { version = "1.42.0", features = ["full"] }
-serialport = "4.6.1"
-udev = "0.9.1"
+cucumber = "=0.21.1"
+tokio = { version = "=1.44.2", features = ["full"] }
+serialport = "=4.7.1"
+udev = "=0.9.3"
 
 [[test]]
 name = "feature_tests"

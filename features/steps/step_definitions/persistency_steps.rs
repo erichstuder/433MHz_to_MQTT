@@ -1,4 +1,4 @@
-use crate::world::MyWorld;
+use crate::MyWorld;
 use crate::rs232::{find_and_open_serial, clear_input_buffer, send, read};
 use cucumber::{given, when, then};
 

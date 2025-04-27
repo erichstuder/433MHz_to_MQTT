@@ -1,10 +1,14 @@
-mod world;
 mod rs232;
-mod rs232_steps;
-mod persistency_steps;
+mod step_definitions;
 
 use cucumber::World;
-use world::MyWorld;
+use serialport::SerialPort;
+
+#[derive(Debug, Default, World)]
+pub struct MyWorld {
+    pub serial_port_name: Option<String>,
+    pub port: Option<Box<dyn SerialPort>>,
+}
 
 #[tokio::main]
 async fn main() {

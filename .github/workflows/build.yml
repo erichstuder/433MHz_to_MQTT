@@ -16,8 +16,8 @@ jobs:
 
         -   run: ./run.py --software --build --verbose --pseudo_tty_off
 
-        # Check if the build was possible without changing files e.g. Cargo.lock
-        -   run: |
+        -   name: check for file changes
+            run: |
                 if [ -n "$(git status --porcelain)" ]; then
                     echo "The build changed files in the repository. Please check the changes:"
                     git status --porcelain

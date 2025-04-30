@@ -9,7 +9,7 @@
                 "terminal.integrated.shell.linux": "/bin/bash"
             },
             "extensions": [
-                "ms-azuretools.vscode-docker",
+                "ms-azuretools.vscode-containers",
                 "ms-python.python",
                 "ybaumes.highlight-trailing-white-spaces"
             ]

@@ -92,6 +92,31 @@ where P: PersistencyTrait,
         else if msg == b"ping" {
             Ok(Self::copy_to_beginning(answer, b"pong"))
         }
+        else if msg == b"version" {
+            if let (Some(compile_time), Some(commit_hash)) = (option_env!("COMPILE_TIME"), option_env!("COMMIT_HASH")) {
+                let compile_time_text = "compile time: ";
+                let mut idx1 = 0;
+                let mut idx2 = compile_time_text.len();
+                answer[idx1..idx2].copy_from_slice(compile_time_text.as_bytes());
+
+                idx1 = idx2;
+                idx2 += compile_time.len();
+                answer[idx1..idx2].copy_from_slice(compile_time.as_bytes());
+
+                let commit_hash_text = "\ncommit hash: ";
+                idx1 = idx2;
+                idx2 += commit_hash_text.len();
+                answer[idx1..idx2].copy_from_slice(commit_hash_text.as_bytes());
+
+                idx1 = idx2;
+                idx2 += commit_hash.len();
+                answer[idx1..idx2].copy_from_slice(commit_hash.as_bytes());
+
+                Ok(idx2)
+            } else {
+                Err("compile time not set")
+            }
+        }
         else if msg.starts_with(STORE_COMMAND) {
             let parameters = &msg[STORE_COMMAND.len()..];
             match self.parse_store_command(parameters).await {

@@ -15,3 +15,11 @@ jobs:
         -   uses: actions/checkout@v4
 
         -   run: ./run.py --software --build --verbose --pseudo_tty_off
+
+        -   name: check for file changes
+            run: |
+                if [ -n "$(git status --porcelain)" ]; then
+                    echo "The build changed files in the repository. Please check the changes:"
+                    git status --porcelain
+                    exit 1
+                fi

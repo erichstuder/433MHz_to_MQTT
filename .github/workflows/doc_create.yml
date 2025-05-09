@@ -18,6 +18,7 @@ jobs:
             run: ./doc/run.py --build --verbose --pseudo_tty_off
 
         -   name: upload artifact
-            uses: actions/upload-pages-artifact@v3
+            uses: actions/upload-artifact@v4
             with:
+                name: documentation
                 path: 'doc/build/html'

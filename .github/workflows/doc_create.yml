@@ -14,7 +14,7 @@ jobs:
         -   name: Checkout
             uses: actions/checkout@v4
 
-        -   name: build documentation
+        -   name: create documentation
             run: ./doc/run.py --build --verbose --pseudo_tty_off
 
         -   name: Setup Pages

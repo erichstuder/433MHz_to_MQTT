@@ -32,7 +32,7 @@ if __name__ == "__main__":
     if ex.arguments.build:
         commands = 'cd firmware && cargo build'
     elif ex.arguments.test:
-        commands = 'cd firmware && cargo test --no-default-features --features test --target x86_64-unknown-linux-gnu | tee build/unit-test-report.txt'
+        commands = 'cd firmware && mkdir -p build && cargo test --no-default-features --features test --target x86_64-unknown-linux-gnu | tee build/unit-test-report.txt'
     elif ex.arguments.upload:
         if ex.running_in_container:
             print("Upload is not (yet) supported inside the container.", file=sys.stderr)

@@ -7,7 +7,11 @@ RUN apt-get update && apt-get install -y \
     plantuml \
     xvfb \
     tree \
-    locales
+    locales \
+    # tig is great for viewing git history
+    tig \
+    # less is needed e.g. for 'git diff' to make the output scrollable
+    less
 
 WORKDIR /usr/drawio
 RUN wget https://github.com/jgraph/drawio-desktop/releases/download/v25.0.2/drawio-amd64-25.0.2.deb && \

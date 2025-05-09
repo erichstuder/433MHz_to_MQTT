@@ -14,4 +14,10 @@ jobs:
 
         -   uses: actions/checkout@v4
 
-        -   run: ./run.py --software --test --verbose --pseudo_tty_off
+        -   run: ./run.py --software --test --verbose --pseudo_tty_off | tee unit-test-report.txt
+
+        -   name: upload artifact
+            uses: actions/upload-artifact@v4
+            with:
+                name: unit-test-report
+                path: unit-test-report.txt

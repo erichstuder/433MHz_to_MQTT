@@ -1,8 +1,8 @@
 on:
-    workflow_run:
-        workflows: [doc_create]
-        types:
-            - completed
+    push:
+        branches:
+            - main
+    workflow_dispatch:
 
 permissions:
     contents: read
@@ -15,19 +15,23 @@ concurrency:
 
 jobs:
     deploy:
-        if: ${{ github.event.workflow_run.conclusion == 'success' && github.ref == 'refs/heads/main' }}
         environment:
             name: github-pages
             url: ${{ steps.deployment.outputs.page_url }}
         runs-on: ubuntu-latest
         steps:
-        -   name: Download artifact
-            uses: actions/download-artifact@v4
-            with:
-                name: documentation
-                path: 'doc/build/html'
+        -   name: setup
+            run: |
+                sudo apt-get update
+                sudo apt-get install -y docker-compose
 
-        -   name: Setup Pages
+        -   name: Checkout
+            uses: actions/checkout@v4
+
+        -   name: create documentation
+            run: ./doc/run.py --build --verbose --pseudo_tty_off
+
+        -   name: setup pages
             uses: actions/configure-pages@v5
 
         -   name: Upload artifact
@@ -35,6 +39,5 @@ jobs:
             with:
                 path: 'doc/build/html'
 
-        -   name: Deploy to GitHub Pages
-            id: deployment
+        -   name: deploy to GitHub pages
             uses: actions/deploy-pages@v4

@@ -13,30 +13,30 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-        -   name: setup
-            run: |
-                sudo apt-get update
-                sudo apt-get install -y docker-compose
+        # -   name: setup
+        #     run: |
+        #         sudo apt-get update
+        #         sudo apt-get install -y docker-compose
 
-        -   uses: actions/checkout@v4
+        # -   uses: actions/checkout@v4
 
-        -   name: set version
-            run: ./run.py --software --set_version_from_tag --verbose --pseudo_tty_off
+        # -   name: set version
+        #     run: ./run.py --software --set_version_from_tag --verbose --pseudo_tty_off
 
-        -   name: build firmware
-            run: ./run.py --software --build --verbose --pseudo_tty_off
+        # -   name: build firmware
+        #     run: ./run.py --software --build --verbose --pseudo_tty_off
 
-        -   name: create documentation
-            # first run the software tests to create the reports for the documentation
-            run: |
-                ./run.py --software --test --verbose --pseudo_tty_off
-                ./run.py --doc --build --verbose --pseudo_tty_off
+        # -   name: create documentation
+        #     # first run the software tests to create the reports for the documentation
+        #     run: |
+        #         ./run.py --software --test --verbose --pseudo_tty_off
+        #         ./run.py --doc --build --verbose --pseudo_tty_off
 
-        -   name: create firmware zip
-            run: |
-                zip ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
-                ./software/firmware/build/thumbv6m-none-eabi/debug/firmware \
-                ./doc/build/html
+        # -   name: create firmware zip
+        #     run: |
+        #         zip ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
+        #         ./software/firmware/build/thumbv6m-none-eabi/debug/firmware \
+        #         ./doc/build/html
 
         -   name: create release
             id: create_release

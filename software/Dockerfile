@@ -1,7 +1,11 @@
 FROM rust:1.85.0
 
 RUN apt-get update && apt-get install -y \
-    libudev-dev
+    libudev-dev \
+    # tig is great for viewing git history
+    tig \
+    # less is needed e.g. for 'git diff' to make the output scrollable
+    less
 
 RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/download/v0.25.0/probe-rs-tools-installer.sh | sh
 
@@ -14,7 +18,8 @@ RUN rustup target add thumbv6m-none-eabi
 
 RUN cargo install \
     elf2uf2-rs@2.1.1 \
-    flip-link@0.1.9
+    flip-link@0.1.9 \
+    cargo-edit@0.13.3
 
 # Pre-fetch dependencies. This makes the later build much faster.
 # - Add a temporary lib to fulfill dependency in Cargo.toml.

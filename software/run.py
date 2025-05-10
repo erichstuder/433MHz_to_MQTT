@@ -24,6 +24,11 @@ if __name__ == "__main__":
             'flag': '-u',
             'name': '--upload',
             'help': 'Upload the software to RPI after rebuild.'
+        },
+        {
+            'flag': '--sv',
+            'name': '--set_version_from_tag',
+            'help': 'Sets the verion in Cargo.toml to the given tag. Used for release builds.'
         }
     ]
 
@@ -57,6 +62,8 @@ if __name__ == "__main__":
                             print("Info: Device was sent into bootloader mode.")
 
         commands = 'cd firmware && cargo run'
+    elif ex.arguments.set_version_from_tag:
+        commands = 'cd firmware && cargo set-version $(git tag | sed "s/^.//")'
     else:
         commands = None
 

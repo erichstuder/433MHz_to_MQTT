@@ -19,6 +19,7 @@ class Executor:
 
         for argument in additional_arguments:
             parser.add_argument(argument['flag'], argument['name'],
+                                dest=argument['name'].lstrip('-'),
                                 action='store_true',
                                 help=argument['help'])
 

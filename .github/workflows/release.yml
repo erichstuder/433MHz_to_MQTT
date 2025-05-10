@@ -39,8 +39,10 @@ jobs:
 
         -   name: create firmware zip
             run: |
-                zip -jr ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
-                ./software/firmware/build/thumbv6m-none-eabi/debug/firmware \
+                zip -j ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
+                ./software/firmware/build/thumbv6m-none-eabi/debug/firmware
+
+                zip -r ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
                 ./doc/build/html
 
         -   name: create release

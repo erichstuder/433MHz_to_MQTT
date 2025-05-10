@@ -7,3 +7,4 @@ Software
     :maxdepth: 2
 
     auto_generated/firmware/main
+    unit_test_report

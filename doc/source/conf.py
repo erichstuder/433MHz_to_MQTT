@@ -122,6 +122,20 @@ def run_cargo_modules(app: Sphinx):
                       '--no-externs', '--no-fns', '--no-owns', '--no-traits', '--no-types'], stdout=subprocess.PIPE)
     subprocess.run(['dot', '-Tpng', '-o', software_dependencies_path], stdin=cargo_process.stdout, check=True)
 
+def copy_unit_test_report(app: Sphinx):
+    source_path = '../software/firmware/build/unit-test-report.txt'
+    dest_path = os.path.join(app.srcdir, 'auto_generated/unit-test-report.txt')
+
+    if os.path.exists(dest_path):
+        os.remove(dest_path)
+
+    try:
+        subprocess.run(['cp', source_path, dest_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Copy of {source_path} failed. Were the software tests already run?")
+        print(f"Details: {e}\n")
+
 def setup(app: Sphinx):
     app.connect("builder-inited", run_gherkindoc)
     app.connect("builder-inited", run_cargo_modules)
+    app.connect("builder-inited", copy_unit_test_report)

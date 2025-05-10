@@ -49,7 +49,7 @@ jobs:
                 draft: false
                 prerelease: false
 
-        -   name: add firmware binary to release
+        -   name: add release assets
             uses: actions/upload-release-asset@v1
             env:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

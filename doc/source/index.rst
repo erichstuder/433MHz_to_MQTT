@@ -31,6 +31,10 @@ Repository
 
 .. program-output:: git remote get-url origin
 
+Tag
+
+.. program-output:: git tag
+
 Branch:
 
 .. program-output:: git rev-parse --abbrev-ref HEAD

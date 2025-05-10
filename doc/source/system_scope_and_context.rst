@@ -21,7 +21,10 @@ System Scope and Context
    * - 433MHz Receiver
      - - Receiver for the 433MHz signal.
        - It is powered by the RPi Pico W.
-       - This component is bought as a module.
+       - This component is bought (e.g. `here) <https://de.aliexpress.com/item/1005003436580019.html>`_ as a module.
+       - See :doc:`auto_generated/firmware/modules/button_task` for receiver pin connection.
+       - .. image:: receiver.png
+            :width: 100px
 
    * - RPi Pico W
      - The Raspberry Pi Pico W receives the data from the 433MHz Receiver

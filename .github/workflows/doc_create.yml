@@ -15,9 +15,13 @@ jobs:
             uses: actions/checkout@v4
 
         -   name: create documentation
-            run: ./doc/run.py --build --verbose --pseudo_tty_off
+            # first run the software tests to create the reports for the documentation
+            run: |
+                ./run.py --software --test --verbose --pseudo_tty_off
+                ./run.py --doc --build --verbose --pseudo_tty_off
 
         -   name: upload artifact
-            uses: actions/upload-pages-artifact@v3
+            uses: actions/upload-artifact@v4
             with:
+                name: documentation
                 path: 'doc/build/html'

@@ -1,0 +1,65 @@
+on:
+    push:
+        tags:
+            -   'v[0-9].[0-9].[0-9]'
+
+permissions:
+    contents: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+
+        steps:
+        -   name: setup
+            run: |
+                sudo apt-get update
+                sudo apt-get install -y docker-compose
+
+        -   uses: actions/checkout@v4
+
+        -   name: set version
+            # Do a local dummy commit to the repo to have no changes in repository. (See version command of the device.)
+            run: |
+                ./run.py --software --set_version_from_tag --verbose --pseudo_tty_off
+                git config user.name "GitHub Actions"
+                git config user.email "actions@github.com"
+                git commit -i ./software/firmware/Cargo.toml -i ./software/firmware/Cargo.lock -m "local dummy commit"
+
+        -   name: build firmware
+            run: ./run.py --software --build --verbose --pseudo_tty_off
+
+        -   name: create documentation
+            # first run the software tests to create the reports for the documentation
+            run: |
+                ./run.py --software --test --verbose --pseudo_tty_off
+                ./run.py --doc --build --verbose --pseudo_tty_off
+
+        -   name: create firmware zip
+            run: |
+                zip -j ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
+                ./software/firmware/build/thumbv6m-none-eabi/debug/firmware
+
+                zip -r ${{ github.event.repository.name }}_${{ github.ref_name }}.zip \
+                ./doc/build/html
+
+        -   name: create release
+            id: create_release
+            uses: actions/create-release@v1
+            env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+                tag_name: ${{ github.ref_name }}
+                release_name: ${{ github.ref_name }}
+                draft: false
+                prerelease: false
+
+        -   name: add release assets
+            uses: actions/upload-release-asset@v1
+            env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            with:
+                upload_url: ${{ steps.create_release.outputs.upload_url }}
+                asset_path: ${{ github.event.repository.name }}_${{ github.ref_name }}.zip
+                asset_name: ${{ github.event.repository.name }}_${{ github.ref_name }}.zip
+                asset_content_type: application/zip

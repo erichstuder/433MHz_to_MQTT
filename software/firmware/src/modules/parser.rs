@@ -93,10 +93,27 @@ where P: PersistencyTrait,
             Ok(Self::copy_to_beginning(answer, b"pong"))
         }
         else if msg == b"version" {
-            if let (Some(compile_time), Some(commit_hash)) = (option_env!("COMPILE_TIME"), option_env!("COMMIT_HASH")) {
-                let compile_time_text = "compile time: ";
+            if let (
+                Some(version),
+                Some(compile_time),
+                Some(commit_hash)
+            ) = (
+                option_env!("CARGO_PKG_VERSION"),
+                option_env!("COMPILE_TIME"),
+                option_env!("COMMIT_HASH")
+            ) {
+                let version_text = "version: ";
                 let mut idx1 = 0;
-                let mut idx2 = compile_time_text.len();
+                let mut idx2 = version_text.len();
+                answer[idx1..idx2].copy_from_slice(version_text.as_bytes());
+
+                idx1 = idx2;
+                idx2 += version.len();
+                answer[idx1..idx2].copy_from_slice(version.as_bytes());
+
+                let compile_time_text = "\ncompile time: ";
+                idx1 = idx2;
+                idx2 += compile_time_text.len();
                 answer[idx1..idx2].copy_from_slice(compile_time_text.as_bytes());
 
                 idx1 = idx2;
@@ -114,7 +131,7 @@ where P: PersistencyTrait,
 
                 Ok(idx2)
             } else {
-                Err("compile time not set")
+                Err("version information not set")
             }
         }
         else if msg.starts_with(STORE_COMMAND) {
@@ -133,6 +150,7 @@ where P: PersistencyTrait,
                 "commands:\n",
                 "enter bootloader           : enters the bootloader to flash via usb\n",
                 "ping                       : results in 'pong'\n",
+                "version                    : provides version information\n",
                 "store <value_name> <value> : stores a value persistently\n",
                 "read <value_name>          : reads a persistent value\n",
                 "help                       : prints this help"

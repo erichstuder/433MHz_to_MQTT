@@ -1,13 +1,11 @@
 {
-    "name": "software",
-    "dockerComposeFile": "${localWorkspaceFolder}/software/docker-compose.yml",
+    "name": "devcontainer",
+    "dockerComposeFile": "docker-compose.yml",
     "service": "main",
-    "workspaceFolder": "/home/${localEnv:USER}/project/software",
+    "workspaceFolder": "/vscode/project",
     "customizations": {
         "vscode": {
             "settings": {
-                "terminal.integrated.shell.linux": "/bin/bash",
-                "rust-analyzer.check.allTargets": false,
                 "rust-analyzer.inlayHints.typeHints.enable": false,
                 "rust-analyzer.inlayHints.parameterHints.enable": false,
                 "editor.semanticTokenColorCustomizations": {
@@ -20,13 +18,14 @@
                 }
             },
             "extensions": [
+                "ms-azuretools.vscode-containers",
+                "ms-python.python",
+                "ybaumes.highlight-trailing-white-spaces",
+                "alexkrechik.cucumberautocomplete",
                 "rust-lang.rust-analyzer",
                 "fill-labs.dependi",
                 "tamasfe.even-better-toml",
-                "ms-azuretools.vscode-containers",
-                "ybaumes.highlight-trailing-white-spaces",
-                "probe-rs.probe-rs-debugger",
-                "ms-python.python"
+                "probe-rs.probe-rs-debugger"
             ]
         }
     }

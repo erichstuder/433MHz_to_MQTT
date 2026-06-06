@@ -18,6 +18,9 @@ jobs:
 
         -   uses: actions/checkout@v4
 
+        -   name: allow container write access to repository
+            run: sudo chmod -R a+rwX .
+
         -   name: set version
             # Do a local dummy commit to the repo to have no changes in repository. (See version command of the device.)
             run: |

@@ -51,4 +51,4 @@ def run_dispatcher(scripts, description=None):
 
 
 def run_command(command):
-    subprocess.run(command, check=True)
+    subprocess.run(command, cwd=pathlib.Path(command[0]).parent, check=True)

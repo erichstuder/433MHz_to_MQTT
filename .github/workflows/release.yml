@@ -21,19 +21,19 @@ jobs:
         -   name: set version
             # Do a local dummy commit to the repo to have no changes in repository. (See version command of the device.)
             run: |
-                ./run.py --software --set_version_from_tag --verbose --pseudo_tty_off
+                ./run.py --verbose --pseudo_tty_off software --set_version_from_tag
                 git config user.name "GitHub Actions"
                 git config user.email "actions@github.com"
                 git commit -i ./software/firmware/Cargo.toml -i ./software/firmware/Cargo.lock -m "local dummy commit"
 
         -   name: build firmware
-            run: ./run.py --software --build --verbose --pseudo_tty_off
+            run: ./run.py --verbose --pseudo_tty_off software --build
 
         -   name: create documentation
             # first run the software tests to create the reports for the documentation
             run: |
-                ./run.py --software --test --verbose --pseudo_tty_off
-                ./run.py --doc --build --verbose --pseudo_tty_off
+                ./run.py --verbose --pseudo_tty_off software --test
+                ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: create firmware zip
             run: |

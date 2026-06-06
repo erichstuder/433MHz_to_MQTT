@@ -3,6 +3,7 @@ services:
         build:
             context: ..
             dockerfile: .devcontainer/Dockerfile
+        working_dir: /home/vscode/project
         volumes:
             - ..:/home/vscode/project
         stdin_open: true

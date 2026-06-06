@@ -31,8 +31,8 @@ jobs:
         -   name: create documentation
             # first run the software tests to create the reports for the documentation
             run: |
-                ./run.py --software --test --verbose --pseudo_tty_off
-                ./run.py --doc --build --verbose --pseudo_tty_off
+                ./run.py --verbose --pseudo_tty_off software --test
+                ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: setup pages
             uses: actions/configure-pages@v5

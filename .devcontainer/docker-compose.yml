@@ -1,9 +1,10 @@
 services:
     main:
         build:
-            dockerfile: Dockerfile
+            context: ..
+            dockerfile: .devcontainer/Dockerfile
         volumes:
-            - ..:/vscode/project
+            - ..:/home/vscode/project
         stdin_open: true
         tty: true
         privileged: true

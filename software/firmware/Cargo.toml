@@ -15,7 +15,7 @@ defmt-rtt = "=1.0.0"
 fixed = "=1.29.0"
 cortex-m-rt = "=0.7.5"
 panic-probe = { version = "=1.0.0", features = ["print-defmt"] }
-static_cell = "=2.1.0"
+static_cell = "=2.1.1"
 portable-atomic = { version = "=1.11.0", features = ["critical-section"] }
 cyw43 = "=0.3.0" # defmt not used as there are warnings to ignore (see: https://github.com/embassy-rs/embassy/issues/3694)
 cyw43-pio = { version = "=0.4.0", features = ["defmt"] }

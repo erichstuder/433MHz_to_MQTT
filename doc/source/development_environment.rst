@@ -38,17 +38,9 @@ configuration
       :caption: settings.json
       :language: json
 
-.. collapse:: devcontainer definitions are found in the .devcontainer/ directory
+.. collapse:: devcontainer definition is found in the .devcontainer/ directory
 
-   .. literalinclude:: ../../.devcontainer/doc/devcontainer.json
-      :caption: devcontainer.json
-      :language: json
-
-   .. literalinclude:: ../../.devcontainer/features/devcontainer.json
-      :caption: devcontainer.json
-      :language: json
-
-   .. literalinclude:: ../../.devcontainer/software/devcontainer.json
+   .. literalinclude:: ../../.devcontainer/devcontainer.json
       :caption: devcontainer.json
       :language: json
 
@@ -177,20 +169,6 @@ probe-rs
 ^^^^^^^^
 probe-rs is installed in the container and the plugin is used in the devcontainer.
 So, no installation by hand.
-
-.. collapse:: Dockerfile with installation of probe-rs
-
-   .. literalinclude:: ../../software/Dockerfile
-      :caption: $/software/Dockerfile
-
-.. collapse:: devcontainer with extension probe-rs.probe-rs-debugger
-
-   .. literalinclude:: ../../.devcontainer/software/devcontainer.json
-      :caption: $/.devcontainer/software/devontainer.json
-
-.. raw:: html
-
-   <br>
 
 other setups
 ^^^^^^^^^^^^

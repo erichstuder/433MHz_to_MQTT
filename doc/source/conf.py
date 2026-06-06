@@ -31,7 +31,7 @@ rust_crates = {
 }
 rust_doc_dir = 'source/auto_generated'
 rust_visibility = 'pvt'
-rust_rustdocgen = '/root/.cargo/bin/sphinx-rustdocgen'
+rust_rustdocgen = '/home/vscode/.cargo/bin/sphinx-rustdocgen'
 
 templates_path = ['_templates']
 

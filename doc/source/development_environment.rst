@@ -225,6 +225,6 @@ help message
 
 To get this help message run in the project root folder:
 
-:code:`./run.py --help_all`
+:code:`./run.py --help`
 
-.. program-output:: ./../../run.py --help_all
+.. program-output:: ./../../run.py --help

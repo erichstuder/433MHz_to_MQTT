@@ -17,6 +17,7 @@ jobs:
             uses: devcontainers/ci@v0.3
             with:
                 configFile: .devcontainer/devcontainer.json
+                push: never
                 # Do a local dummy commit to the repo to have no changes in repository. (See version command of the device.)
                 runCmd: |
                     ./run.py --verbose --pseudo_tty_off software --set_version_from_tag
@@ -28,12 +29,14 @@ jobs:
             uses: devcontainers/ci@v0.3
             with:
                 configFile: .devcontainer/devcontainer.json
+                push: never
                 runCmd: ./run.py --verbose --pseudo_tty_off software --build
 
         -   name: create documentation
             uses: devcontainers/ci@v0.3
             with:
                 configFile: .devcontainer/devcontainer.json
+                push: never
                 # first run the software tests to create the reports for the documentation
                 runCmd: |
                     ./run.py --verbose --pseudo_tty_off software --test

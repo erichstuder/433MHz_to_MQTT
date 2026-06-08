@@ -27,6 +27,7 @@ jobs:
             uses: devcontainers/ci@v0.3
             with:
                 configFile: .devcontainer/devcontainer.json
+                push: never
                 # first run the software tests to create the reports for the documentation
                 runCmd: |
                     ./run.py --verbose --pseudo_tty_off software --test

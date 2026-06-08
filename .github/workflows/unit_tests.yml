@@ -13,6 +13,7 @@ jobs:
             uses: devcontainers/ci@v0.3
             with:
                 configFile: .devcontainer/devcontainer.json
+                push: never
                 runCmd: ./run.py --verbose --pseudo_tty_off software --test
 
         -   name: upload artifact

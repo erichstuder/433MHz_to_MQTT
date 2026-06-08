@@ -76,6 +76,3 @@ RUN python3 -m pip install --verbose \
 
 # RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
 #     locale-gen
-
-# This is a workaround so in the github job there is no warning about dubious ownership of the git repository, when sphinx uses git commands.
-RUN git config --global --add safe.directory /home/vscode/project

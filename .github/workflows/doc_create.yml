@@ -6,22 +6,16 @@ jobs:
     build:
         runs-on: ubuntu-latest
         steps:
-        -   name: setup
-            run: |
-                sudo apt-get update
-                sudo apt-get install -y docker-compose
-
         -   name: checkout
             uses: actions/checkout@v4
 
-        -   name: allow container write access to repository
-            run: sudo chmod -R a+rwX .
-
         -   name: create documentation
-            # first run the software tests to create the reports for the documentation
-            run: |
-                ./run.py --verbose --pseudo_tty_off software --test
-                ./run.py --verbose --pseudo_tty_off doc --build
+            uses: devcontainers/ci@v0.3
+            with:
+                configFile: .devcontainer/devcontainer.json
+                runCmd: |
+                    ./run.py --verbose --pseudo_tty_off software --test
+                    ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: upload artifact
             uses: actions/upload-artifact@v4

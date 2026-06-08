@@ -1,8 +1,9 @@
 {
     "name": "devcontainer",
-    "dockerComposeFile": "docker-compose.yml",
-    "service": "main",
-    "workspaceFolder": "/home/vscode/project",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
     "customizations": {
         "vscode": {
             "settings": {

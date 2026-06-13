@@ -11,32 +11,36 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-        -   name: setup
-            run: |
-                sudo apt-get update
-                sudo apt-get install -y docker-compose
-
         -   uses: actions/checkout@v4
 
-        -   name: allow container write access to repository
-            run: sudo chmod -R a+rwX .
-
         -   name: set version
-            # Do a local dummy commit to the repo to have no changes in repository. (See version command of the device.)
-            run: |
-                ./run.py --verbose --pseudo_tty_off software --set_version_from_tag
-                git config user.name "GitHub Actions"
-                git config user.email "actions@github.com"
-                git commit -i ./software/firmware/Cargo.toml -i ./software/firmware/Cargo.lock -m "local dummy commit"
+            uses: devcontainers/ci@v0.3
+            with:
+                configFile: .devcontainer/devcontainer.json
+                push: never
+                # Do a local dummy commit to the repo to have no changes in repository. (See version command of the device.)
+                runCmd: |
+                    ./run.py --verbose --pseudo_tty_off software --set_version_from_tag
+                    git config user.name "GitHub Actions"
+                    git config user.email "actions@github.com"
+                    git commit -i ./software/firmware/Cargo.toml -i ./software/firmware/Cargo.lock -m "local dummy commit"
 
         -   name: build firmware
-            run: ./run.py --verbose --pseudo_tty_off software --build
+            uses: devcontainers/ci@v0.3
+            with:
+                configFile: .devcontainer/devcontainer.json
+                push: never
+                runCmd: ./run.py --verbose --pseudo_tty_off software --build
 
         -   name: create documentation
-            # first run the software tests to create the reports for the documentation
-            run: |
-                ./run.py --verbose --pseudo_tty_off software --test
-                ./run.py --verbose --pseudo_tty_off doc --build
+            uses: devcontainers/ci@v0.3
+            with:
+                configFile: .devcontainer/devcontainer.json
+                push: never
+                # first run the software tests to create the reports for the documentation
+                runCmd: |
+                    ./run.py --verbose --pseudo_tty_off software --test
+                    ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: create firmware zip
             run: |

@@ -7,17 +7,14 @@ jobs:
     build:
         runs-on: ubuntu-latest
         steps:
-        -   name: setup
-            run: |
-                sudo apt-get update
-                sudo apt-get install -y docker-compose
-
         -   uses: actions/checkout@v4
 
-        -   name: allow container write access to repository
-            run: sudo chmod -R a+rwX .
-
-        -   run: ./run.py --verbose --pseudo_tty_off software --build
+        -   name: build software
+            uses: devcontainers/ci@v0.3
+            with:
+                configFile: .devcontainer/devcontainer.json
+                push: never
+                runCmd: ./run.py --verbose --pseudo_tty_off software --build
 
         -   name: check for file changes
             run: |

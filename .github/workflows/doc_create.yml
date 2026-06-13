@@ -7,7 +7,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
         -   name: checkout
-            uses: actions/checkout@v4
+            uses: actions/checkout@v6
 
         -   name: create documentation
             uses: devcontainers/ci@v0.3
@@ -19,7 +19,7 @@ jobs:
                     ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: upload artifact
-            uses: actions/upload-artifact@v4
+            uses: actions/upload-artifact@v7
             with:
                 name: documentation
                 path: 'doc/build/html'

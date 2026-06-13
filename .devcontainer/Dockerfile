@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/python:3.0.8-3.13-trixie
+FROM mcr.microsoft.com/devcontainers/python:3.0.8-3.14-trixie
 
 ## common setup ##
 RUN apt-get update && apt-get install -y \
@@ -15,18 +15,18 @@ USER vscode
 ENV CARGO_HOME=/home/vscode/.cargo
 ENV RUSTUP_HOME=/home/vscode/.rustup
 ENV PATH=/home/vscode/.local/bin:/home/vscode/.cargo/bin:${PATH}
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs  | sh -s -- -y --default-toolchain 1.85.0
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs  | sh -s -- -y --default-toolchain 1.96.0
 
 
 ## software setup ##
-RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/download/v0.25.0/probe-rs-tools-installer.sh | sh
+RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/download/v0.31.0/probe-rs-tools-installer.sh | sh
 
 RUN rustup target add thumbv6m-none-eabi
 
 RUN cargo install --locked \
-    elf2uf2-rs@2.1.1 \
-    flip-link@0.1.9 \
-    cargo-edit@0.13.3
+    elf2uf2-rs@2.2.0 \
+    flip-link@0.1.12 \
+    cargo-edit@0.13.11
 
 # Pre-fetch dependencies. This makes the later build much faster.
 WORKDIR /tmp/firmware_dependencies_fetch
@@ -53,26 +53,31 @@ RUN apt-get update && apt-get install -y \
     # locales
 
 WORKDIR /tmp/drawio
-RUN wget https://github.com/jgraph/drawio-desktop/releases/download/v25.0.2/drawio-amd64-25.0.2.deb && \
-    apt-get install -y ./drawio-amd64-25.0.2.deb
+RUN wget https://github.com/jgraph/drawio-desktop/releases/download/v30.0.4/drawio-amd64-30.0.4.deb && \
+    apt-get install -y ./drawio-amd64-30.0.4.deb
 
 USER vscode
 
-RUN cargo install --locked cargo-modules@0.23.1
+RUN cargo install --locked cargo-modules@0.26.0
 
 RUN python3 -m pip install --verbose \
-    sphinx==8.1.3 \
-    sphinx-autobuild==2024.10.3 \
+    # An older version of sphinx is needed to solve a dependency conflicts, see below.
+    sphinx==8.2.3 \
+
+    sphinx-autobuild==2025.8.25 \
     sphinxcontrib-drawio==0.0.17 \
-    sphinxcontrib-plantuml==0.30 \
-    sphinx-toolbox==3.8.1 \
-    sphinxcontrib-programoutput==0.18 \
+    sphinxcontrib-plantuml==0.31 \
+    sphinx-toolbox==4.2.0 \
+    sphinxcontrib-programoutput==0.19 \
     pyserial==3.5 \
-    sphinxcontrib-rust==0.8.1 \
-    sphinx-needs==4.1.0 \
+
+    # depends on sphinx < 9
+    sphinxcontrib-rust==1.1.0 \
+
+    sphinx-needs==8.1.1 \
     sphinx-gherkindoc==3.6.4 \
-    setuptools==75.6.0 \
-    pillow==11.0.0
+    setuptools==82.0.1 \
+    pillow==12.2.0
 
 # RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
 #     locale-gen

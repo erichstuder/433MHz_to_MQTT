@@ -21,7 +21,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
         -   name: checkout
-            uses: actions/checkout@v4
+            uses: actions/checkout@v6
 
         -   name: create documentation
             uses: devcontainers/ci@v0.3
@@ -34,12 +34,12 @@ jobs:
                     ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: setup pages
-            uses: actions/configure-pages@v5
+            uses: actions/configure-pages@v6
 
         -   name: upload pages artifact
-            uses: actions/upload-pages-artifact@v3
+            uses: actions/upload-pages-artifact@v5
             with:
                 path: 'doc/build/html'
 
         -   name: deploy to GitHub pages
-            uses: actions/deploy-pages@v4
+            uses: actions/deploy-pages@v5

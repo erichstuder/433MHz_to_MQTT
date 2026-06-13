@@ -74,9 +74,8 @@ needs_types = [
     },
 ]
 
-needs_extra_links = [
-    {
-        "option": "includes",
+needs_links = {
+    "includes": {
         "incoming": "is included by",
         "outgoing": "<<include>>",
         "copy": False,
@@ -85,8 +84,7 @@ needs_extra_links = [
         "style_start": ".",
         "style_end": "->"
     },
-    {
-        "option": "association",
+    "association": {
         "incoming": "is associated with",
         "outgoing": "",
         "copy": False,
@@ -95,7 +93,7 @@ needs_extra_links = [
         "style_start": "-",
         "style_end": "-"
     },
-]
+}
 
 def run_gherkindoc(app: Sphinx):
     features_dir = os.path.join(app.srcdir, 'auto_generated/features')

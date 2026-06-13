@@ -7,7 +7,7 @@ jobs:
     build:
         runs-on: ubuntu-latest
         steps:
-        -   uses: actions/checkout@v4
+        -   uses: actions/checkout@v6
 
         -   name: run unit tests
             uses: devcontainers/ci@v0.3
@@ -17,7 +17,7 @@ jobs:
                 runCmd: ./run.py --verbose --pseudo_tty_off software --test
 
         -   name: upload artifact
-            uses: actions/upload-artifact@v4
+            uses: actions/upload-artifact@v7
             with:
                 name: unit-test-report
                 path: software/firmware/build/unit-test-report.txt

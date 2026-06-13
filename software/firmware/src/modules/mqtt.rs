@@ -4,36 +4,35 @@ use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(not(test))] {
-        use defmt::{info, error};
+        use defmt::{info, error, unwrap};
         use embassy_executor::{task, Spawner};
-        use embassy_rp::gpio;
+        use embassy_rp::{Peri, gpio, dma};
         use embassy_time::{Duration, Timer};
         use embassy_net;
         use embassy_rp::clocks::RoscRng;
         use embassy_rp::pio::Pio;
         use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
-        use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
+        // use rand_core::RngCore; // Don't know why this is needed. Is it because the 'use' is missing in embassy_rp::clocks::RoscRng?
         use static_cell::StaticCell;
         use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
-        use cyw43::JoinOptions;
+        use cyw43::{aligned_bytes, JoinOptions};
         use core::net::Ipv4Addr;
         use heapless::String;
-        use rust_mqtt::client::client::MqttClient;
-        use rust_mqtt::utils::rng_generator::CountingRng;
+        use rust_mqtt::types::{MqttString, MqttBinary};
         use embassy_sync::mutex::Mutex;
         use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
         use crate::modules::persistency::{self, PersistencyTrait};
 
-        type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient<'static, embassy_net::tcp::TcpSocket<'static>, 5, CountingRng>>;
+        type MqttClientMutexed = Mutex<CriticalSectionRawMutex, rust_mqtt::client::Client<'static, embassy_net::tcp::TcpSocket<'static>, rust_mqtt::buffer::BumpBuffer<'static>, 8, 16, 16, 4>>;
 
-        pub struct WifiHw {
-            pub pin_23: PIN_23,
-            pub pin_24: PIN_24,
-            pub pin_25: PIN_25,
-            pub pin_29: PIN_29,
+        pub struct WifiHw<'d> {
+            pub pin_23: Peri<'d, PIN_23>,
+            pub pin_24: Peri<'d, PIN_24>,
+            pub pin_25: Peri<'d, PIN_25>,
+            pub pin_29: Peri<'d, PIN_29>,
             pub pio_1: Pio<'static, PIO1>,
-            pub dma_ch1: DMA_CH1,
+            pub dma_ch1: Peri<'d, DMA_CH1>,
         }
 
         const MQTT_BROKER_USERNAME_LENGTH: usize = 32;
@@ -58,11 +57,14 @@ pub struct MQTT {
 
 impl MQTT {
     #[cfg(not(test))]
-    pub async fn new<P>(persistency: &'static P, mut hw: WifiHw, spawner: Spawner) -> Option<Self>
-    where P: PersistencyTrait,
+    pub async fn new<P, I>(persistency: &'static P, mut hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Option<Self>
+    where
+        P: PersistencyTrait,
+        I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH1>> + 'static,
     {
-        let fw = include_bytes!("../../../cyw43-firmware/43439A0.bin");
-        let clm = include_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+        let fw = aligned_bytes!("../../../cyw43-firmware/43439A0.bin");
+        let clm = aligned_bytes!("../../../cyw43-firmware/43439A0_clm.bin");
+        let nvram = aligned_bytes!("../../../cyw43-firmware/nvram_rp2040.bin");
 
         let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
         let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
@@ -75,13 +77,13 @@ impl MQTT {
             cs,
             hw.pin_24,
             hw.pin_29,
-            hw.dma_ch1
+            dma::Channel::new(hw.dma_ch1, irq)
         );
 
         static CYW43_STATE: StaticCell<cyw43::State> = StaticCell::new();
         let cyw43_state = CYW43_STATE.init(cyw43::State::new());
-        let (net_device, mut control, runner) = cyw43::new(cyw43_state, pwr, spi, fw).await;
-        spawner.spawn(cyw43_task(runner)).unwrap();
+        let (net_device, mut control, runner) = cyw43::new(cyw43_state, pwr, spi, fw, nvram).await;
+        spawner.spawn(unwrap!(cyw43_task(runner)));
 
         control.init(clm).await;
         control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
@@ -91,7 +93,7 @@ impl MQTT {
         let seed = rng.next_u64();
         static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
         let (network_stack, network_runner) = embassy_net::new(net_device, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
-        spawner.spawn(net_task(network_runner)).unwrap();
+        spawner.spawn(unwrap!(net_task(network_runner)));
 
         let mut credentials = Credentials {
             wifi_ssid: String::new(),
@@ -122,7 +124,7 @@ impl MQTT {
                     info!("join successful");
                     break
                 },
-                Err(err) => info!("join failed with status={}", err.status),
+                Err(err) => info!("join failed with status={:?}", err),
             }
         }
 
@@ -143,10 +145,10 @@ impl MQTT {
         let tx_buffer = TX_BUFFER.init([0; 4096]);
         let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
         socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
-        static RECV_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
-        let recv_buffer = RECV_BUFFER.init([0; 150]);
-        static WRITE_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
-        let write_buffer = WRITE_BUFFER.init([0; 150]);
+        // static RECV_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
+        // let recv_buffer = RECV_BUFFER.init([0; 150]);
+        // static WRITE_BUFFER: StaticCell<[u8; 150]> = StaticCell::new(); //was 80
+        // let write_buffer = WRITE_BUFFER.init([0; 150]);
 
         let connection = socket.connect(remote_endpoint).await;
         if let Err(e) = connection {
@@ -154,43 +156,42 @@ impl MQTT {
         }
         info!("connected to broker!");
 
-        let mut config = rust_mqtt::client::client_config::ClientConfig::new(
-            rust_mqtt::client::client_config::MqttVersion::MQTTv5,
-            rust_mqtt::utils::rng_generator::CountingRng(20000),
-        );
-        config.add_max_subscribe_qos(rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1);
-        config.add_client_id("433MHz_to_MQTT");
-        config.add_username(mqtt_broker_username);
-        config.add_password(mqtt_broker_password);
-        config.max_packet_size = 150; //was 100
+        let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
+            .clean_start()
+            .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
+            .user_name(unwrap!(MqttString::from_str(mqtt_broker_username)))
+            .password(unwrap!(MqttBinary::from_slice(mqtt_broker_password.as_bytes())));
 
-        let client = MqttClient::<_, 5, _>::new(
-            socket,
-            write_buffer,
-            150,
-            recv_buffer,
-            150,
-            config,
-        );
+
+        static MQTT_BUMP_MEM: StaticCell<[u8; 2048]> = StaticCell::new();
+        static MQTT_BUMP: StaticCell<rust_mqtt::buffer::BumpBuffer<'static>> = StaticCell::new();
+
+        let bump_mem = MQTT_BUMP_MEM.init([0; 2048]);
+        let bump = MQTT_BUMP.init(rust_mqtt::buffer::BumpBuffer::new(bump_mem));
+        let client = rust_mqtt::client::Client::new(bump);
+
         static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
         let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
 
-        loop {
+        // loop { Note: At the moment we only try once to connect, due to a moved socket.
             let mut client = client_mutexed.lock().await;
-            match client.connect_to_broker().await {
-                Ok(()) => {
-                    info!("Connected to broker 555");
-                    break;
+            match client.connect(
+                socket,
+                &mqtt_connect_options,
+                Some(MqttString::from_str("433MHz_to_MQTT").unwrap())
+            ).await {
+                Ok(info) => {
+                    info!("Connected to broker with: {:?}", info);
+                    // break;
                 }
-                Err(mqtt_error) => match mqtt_error {
-                    rust_mqtt::packet::v5::reason_codes::ReasonCode::NetworkError => error!("MQTT Network Error"),
-                    _ => error!("Other MQTT Error: {:?}", mqtt_error),
+                Err(e) =>  {
+                    error!("Other MQTT Error: {:?}", e);
                 },
             }
-            Timer::after(Duration::from_millis(2000)).await;
-        }
+        //     Timer::after(Duration::from_millis(2000)).await;
+        // }
 
-        spawner.spawn(ping_task(client_mutexed)).unwrap();
+        spawner.spawn(unwrap!(ping_task(client_mutexed)));
 
         Some(Self {
             client_mutexed,
@@ -267,17 +268,19 @@ impl MQTT {
     #[cfg(not(test))]
     pub async fn send_message(&mut self, payload: &[u8]) {
         let mut client = self.client_mutexed.lock().await;
-        let result = client.send_message("433MHz_to_MQTT_button", payload, rust_mqtt::packet::v5::publish_packet::QualityOfService::QoS1, false).await;
-        match result {
-            Ok(()) => info!("message sent"),
-            Err(mqtt_error) => info!("message NOT sent: {:?}", mqtt_error),
-        }
+        let topic = unwrap!(rust_mqtt::types::TopicName::new(unwrap!(MqttString::from_str("433MHz_to_MQTT_button"))));
+        unwrap!(client.publish(
+            &rust_mqtt::client::options::PublicationOptions::new(rust_mqtt::client::options::TopicReference::Name(topic.as_borrowed())).exactly_once(),
+            payload.into()
+        ).await);
+
+
     }
 }
 
 #[cfg(not(test))]
 #[task]
-async fn cyw43_task(runner: cyw43::Runner<'static, gpio::Output<'static>, cyw43_pio::PioSpi<'static, PIO1, 0, DMA_CH1>>) -> ! {
+async fn cyw43_task(runner: cyw43::Runner<'static, cyw43::SpiBus<gpio::Output<'static>, cyw43_pio::PioSpi<'static, PIO1, 0>>>) -> ! {
     runner.run().await
 }
 
@@ -294,7 +297,7 @@ async fn ping_task(client: &'static MqttClientMutexed) -> ! {
         Timer::after(Duration::from_secs(30)).await;
 
         let mut client = client.lock().await;
-        let result = client.send_ping().await;
+        let result = client.ping().await;
         match result {
             Ok(()) => info!("ping sent"),
             Err(mqtt_error) => info!("ping NOT sent: {:?}", mqtt_error),

@@ -4,6 +4,8 @@ use cfg_if::cfg_if;
 
 cfg_if! {
     if #[cfg(not(test))] {
+        use defmt::unwrap;
+        use embassy_rp::Peri;
         use embassy_executor::{Spawner, task};
         use embassy_usb::UsbDevice;
         use embassy_usb::class::cdc_acm::{self, CdcAcmClass};
@@ -21,7 +23,6 @@ cfg_if! {
 
 use embassy_rp::peripherals::USB;
 use embassy_rp::usb;
-
 
 
 use embassy_usb::driver::EndpointError as UsbEndpointError;
@@ -42,7 +43,7 @@ impl From<UsbEndpointError> for UsbDisconnected {
 }
 
 #[cfg(not(test))]
-pub fn create(usb: USB, spawner: Spawner) -> (UsbReceiver, UsbSender) {
+pub fn create(usb: Peri<'static, USB>, spawner: Spawner) -> (UsbReceiver, UsbSender) {
     let mut config = embassy_usb::Config::new(0x2E8A, 0x0005); //rpi pico w default vid=0x2E8A and pid=0x0005
     config.manufacturer = Some("github.com/erichstuder");
     config.product = Some("433MHz_to_MQTT");
@@ -88,7 +89,7 @@ pub fn create(usb: USB, spawner: Spawner) -> (UsbReceiver, UsbSender) {
     static USB: StaticCell<UsbDevice<'static, UsbDriver>> = StaticCell::new();
     let usb = USB.init(builder.build());
 
-    spawner.spawn(usb_task(usb)).unwrap();
+    spawner.spawn(unwrap!(usb_task(usb)));
 
     ( UsbReceiver::new(usb_receiver), UsbSender::new(usb_sender) )
 }

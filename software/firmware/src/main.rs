@@ -23,10 +23,12 @@ mod modules;
 
 cfg_if! {
     if #[cfg(not(test))] {
+        use defmt::unwrap;
+
         use embassy_executor::{Spawner, main};
         use embassy_rp::bind_interrupts;
         use embassy_rp::pio::{self, Pio};
-        use embassy_rp::peripherals::{PIO0, PIO1};
+        use embassy_rp::peripherals::{DMA_CH0, DMA_CH1, PIO0, PIO1};
         use static_cell::StaticCell;
 
         use crate::modules::button_task;
@@ -39,6 +41,11 @@ cfg_if! {
 }
 
 #[cfg(not(test))]
+bind_interrupts!(struct DmaIrqs {
+    DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>, embassy_rp::dma::InterruptHandler<DMA_CH1>;
+});
+
+#[cfg(not(test))]
 #[main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
@@ -48,11 +55,11 @@ async fn main(spawner: Spawner) {
     let usb_sender = USB_SENDER.init(usb_sender);
 
     static PERSISTENCY: StaticCell<Persistency> = StaticCell::new();
-    let persistency = PERSISTENCY.init(Persistency::new(peripherals.FLASH, peripherals.DMA_CH0));
+    let persistency = PERSISTENCY.init(Persistency::new(peripherals.FLASH, peripherals.DMA_CH0, DmaIrqs));
 
     let parser = Parser::new(persistency);
 
-    spawner.spawn(terminal::run(usb_receiver, usb_sender, parser)).unwrap();
+    spawner.spawn(unwrap!(terminal::run(usb_receiver, usb_sender, parser)));
 
     bind_interrupts!(struct Pio1Irqs {
         PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
@@ -67,11 +74,11 @@ async fn main(spawner: Spawner) {
         dma_ch1: peripherals.DMA_CH1,
     };
 
-    if let Some(mqtt) = MQTT::new(persistency, wifi_hw, spawner).await {
+    if let Some(mqtt) = MQTT::new(persistency, wifi_hw, spawner, DmaIrqs).await {
         bind_interrupts!(struct Pio0Irqs {
             PIO0_IRQ_0 => pio::InterruptHandler<PIO0>;
         });
         let pio = Pio::new(peripherals.PIO0, Pio0Irqs);
-        spawner.spawn(button_task::run(pio, peripherals.PIN_28, usb_sender, mqtt)).unwrap();
+        spawner.spawn(unwrap!(button_task::run(pio, peripherals.PIN_28, usb_sender, mqtt)));
     }
 }

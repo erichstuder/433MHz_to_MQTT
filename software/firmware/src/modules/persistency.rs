@@ -5,6 +5,8 @@ use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::FLASH;
 #[cfg(not(test))]
 use embassy_rp::peripherals::DMA_CH0;
+#[cfg(not(test))]
+use embassy_rp::Peri;
 
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
@@ -22,7 +24,7 @@ pub trait PersistencyTrait{
     async fn read<'a>(&'a self, field: ValueId, answer: &'a mut [u8]) -> Result<usize, &'static str>;
 }
 
-type PersistencyMutexed = Mutex<CriticalSectionRawMutex, PersistencyUnprotected>;
+type PersistencyMutexed = Mutex<CriticalSectionRawMutex, PersistencyUnprotected<'static>>;
 
 pub struct Persistency {
     persistency_mutexed: PersistencyMutexed,
@@ -30,8 +32,12 @@ pub struct Persistency {
 
 impl Persistency {
     #[cfg(not(test))]
-    pub fn new(flash: FLASH, dma: DMA_CH0) -> Self {
-        let persistency = PersistencyUnprotected::new(flash, dma);
+    pub fn new<I>(flash: Peri<'static, FLASH>, dma: Peri<'static, DMA_CH0>, irq: I) -> Self
+    where
+        // TODO: This line currently appears twice => refactor to have only one line.
+        I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH0>> + 'static
+    {
+        let persistency = PersistencyUnprotected::new(flash, dma, irq);
         Self { persistency_mutexed: PersistencyMutexed::new(persistency) }
     }
 }
@@ -48,16 +54,19 @@ impl PersistencyTrait for Persistency {
     }
 }
 
-struct PersistencyUnprotected {
-    flash: Flash<'static, FLASH, flash::Async, FLASH_SIZE>,
+struct PersistencyUnprotected<'d> {
+    flash: Flash<'d, FLASH, flash::Async, FLASH_SIZE>,
     filesystem: Filesystem,
 }
 
-impl PersistencyUnprotected{
+impl<'d> PersistencyUnprotected<'d>{
     #[cfg(not(test))]
-    fn new(flash: FLASH, dma: DMA_CH0) -> Self {
+    fn new<I>(flash: Peri<'d, FLASH>, dma: Peri<'d, DMA_CH0>, irq: I) -> Self
+    where
+        I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH0>> + 'static
+    {
         Self {
-            flash: Flash::new(flash, dma),
+            flash: Flash::new(flash, dma, irq),
             filesystem: Filesystem::new(),
         }
     }

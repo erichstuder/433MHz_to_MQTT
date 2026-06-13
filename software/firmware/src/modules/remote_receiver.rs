@@ -8,6 +8,7 @@ cfg_if! {
         use embassy_rp::{gpio, pio};
         use embassy_rp::pio::PioPin;
         use embassy_rp::pio::program::pio_asm;
+        use embassy_rp::Peri;
         use fixed::traits::ToFixed;
     }
 }
@@ -20,7 +21,7 @@ pub struct RemoteReceiver<'d, PIO: pio::Instance, const SM: usize> {
 
 #[cfg(not(test))]
 impl<'d, PIO: pio::Instance, const SM: usize> RemoteReceiver<'d, PIO, SM> {
-    pub fn new(pio: &mut pio::Common<'d, PIO>, mut pio_sm: pio::StateMachine<'d, PIO, SM>, receiver_pin: impl PioPin) -> Self {
+    pub fn new(pio: &mut pio::Common<'d, PIO>, mut pio_sm: pio::StateMachine<'d, PIO, SM>, receiver_pin: Peri<'static, impl PioPin>) -> Self {
         let mut pin = pio.make_pio_pin(receiver_pin);
         pin.set_pull(gpio::Pull::None);
         pio_sm.set_pin_dirs(pio::Direction::In, &[&pin]);

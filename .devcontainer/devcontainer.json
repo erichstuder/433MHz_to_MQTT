@@ -7,16 +7,24 @@
     "customizations": {
         "vscode": {
             "settings": {
+                "rust-analyzer.completion.autoimport.enable": false,
                 "rust-analyzer.inlayHints.typeHints.enable": false,
-                "rust-analyzer.inlayHints.parameterHints.enable": false,
-                "editor.semanticTokenColorCustomizations": {
-                    "enabled": true,
-                    "rules": {
-                        "*.mutable": {
-                            "underline": false
-                        }
-                    }
-                }
+
+                "rust-analyzer.linkedProjects": [
+                    "software/firmware/Cargo.toml",
+                    "features/steps/Cargo.toml"
+                ],
+
+                // This is a workaround to suppress "error[E0463]: can't find crate for `test`"
+                // It was just annoying during work. Building and testing works fine.
+                // see: https://github.com/rust-lang/rust-analyzer/issues/3801
+                // "rust-analyzer.check.allTargets": false,
+                // "rust-analyzer.check.extraArgs": [
+                // "--target",
+                // "thumbv6m-none-eabi"
+                // ],
+
+                "hediet.vscode-drawio.theme": "kennedy"
             },
             "extensions": [
                 "ms-azuretools.vscode-containers",

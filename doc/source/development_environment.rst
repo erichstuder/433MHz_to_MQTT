@@ -28,16 +28,6 @@ All necessary files can be created and edited with VS Code.
 
 configuration
 ^^^^^^^^^^^^^
-.. collapse:: configuration files of VS Code are found in the .vscode/ directory
-
-   .. literalinclude:: ../../.vscode/extensions.json
-      :caption: extensions.json
-      :language: json
-
-   .. literalinclude:: ../../.vscode/settings.json
-      :caption: settings.json
-      :language: json
-
 .. collapse:: devcontainer definition is found in the .devcontainer/ directory
 
    .. literalinclude:: ../../.devcontainer/devcontainer.json

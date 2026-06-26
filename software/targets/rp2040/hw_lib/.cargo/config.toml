@@ -1,0 +1,20 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "probe-rs run --chip RP2040"
+
+rustflags = [
+  "-C", "linker=flip-link",
+  "-C", "link-arg=--nmagic",
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=-Tlink-rp.x",
+  "-C", "link-arg=-Tdefmt.x",
+  "-C", "no-vectorize-loops",
+  "-C", "link-arg=-Tembedded-test.x"
+]
+
+[build]
+target = "thumbv6m-none-eabi"
+
+[env]
+# Prevent showing warning that can be ignored: "Failed to switch to DP Multidrop ...".
+# See e.g. https://github.com/probe-rs/probe-rs/issues/3316
+RUST_LOG = "probe_rs::architecture::arm::communication_interface=error"

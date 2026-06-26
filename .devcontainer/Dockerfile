@@ -19,14 +19,13 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs  | sh -s -- -y --d
 
 
 ## software setup ##
-RUN curl --proto '=https' --tlsv1.2 -LsSf https://github.com/probe-rs/probe-rs/releases/download/v0.31.0/probe-rs-tools-installer.sh | sh
-
 RUN rustup target add thumbv6m-none-eabi
 
 RUN cargo install --locked \
     elf2uf2-rs@2.2.0 \
     flip-link@0.1.12 \
-    cargo-edit@0.13.11
+    cargo-edit@0.13.11 \
+    probe-rs-tools@0.31.0
 
 # Pre-fetch dependencies. This makes the later build much faster.
 WORKDIR /tmp/firmware_dependencies_fetch

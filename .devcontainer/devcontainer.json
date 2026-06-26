@@ -4,6 +4,9 @@
         "dockerfile": "Dockerfile",
         "context": ".."
     },
+    "runArgs": [
+        "--privileged"
+    ],
     "customizations": {
         "vscode": {
             "settings": {

@@ -1,5 +1,8 @@
-[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+[target.thumbv6m-none-eabi]
 runner = "probe-rs run --chip RP2040"
+
+# Note: To flash the rp2040 make sure it is in BOOTSEL mode and then:
+# CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="elf2uf2-rs -d" cargo run
 
 rustflags = [
   "-C", "linker=flip-link",

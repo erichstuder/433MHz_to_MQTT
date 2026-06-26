@@ -7,6 +7,9 @@
     "runArgs": [
         "--privileged"
     ],
+    "mounts": [
+        "source=/media/${localEnv:USER},target=/media/${localEnv:USER},type=bind"
+    ],
     "customizations": {
         "vscode": {
             "settings": {

@@ -16,6 +16,8 @@ panic-probe = { version = "=1.0.0", features = ["print-defmt"] }
 # see: https://docs.rs/embedded-test-linker-script/0.1.0/embedded_test_linker_script/
 embedded-test-linker-script = { version = "=0.1.0", optional = true }
 embedded-test = { version = "=0.7.1", default-features = false, features = ["embassy-010"], optional = true }
+embedded-storage-file = { version = "=0.2.0", optional = true }
+embedded-storage-async = {version = "=0.4.1", optional = true}
 
 [lib]
 harness = false
@@ -33,6 +35,8 @@ default = [
 host-test = [
     "embassy-executor/platform-std",
     "embedded-test/std",
+    "embedded-storage-file",
+    "embedded-storage-async"
 ]
 target-test = [
     "embassy-executor/platform-cortex-m",

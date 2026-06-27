@@ -8,6 +8,7 @@ use sequential_storage::map::{MapStorage, MapConfig};
 
 const DATA_BUFFER_SIZE: usize = 32;
 
+#[derive(Clone, Copy)]
 #[repr(u8)]
 pub enum Key {
     WifiSsid,

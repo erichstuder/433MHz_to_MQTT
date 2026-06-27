@@ -17,7 +17,7 @@ panic-probe = { version = "=1.0.0", features = ["print-defmt"] }
 embedded-test-linker-script = { version = "0.1.0" }
 
 [dev-dependencies]
-embedded-test = "=0.7.1"
+embedded-test = { version = "0.7.1", features = ["embassy-010"]}
 
 # TODO: necessary?
 # defmt-rtt = "=1.2.0"

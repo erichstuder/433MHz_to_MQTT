@@ -1,9 +1,7 @@
 [target.thumbv6m-none-eabi]
 runner = "probe-rs run --chip RP2040"
-
 # Note: To flash the rp2040 make sure it is in BOOTSEL mode and then:
 # CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="elf2uf2-rs -d" cargo run
-
 rustflags = [
   "-C", "linker=flip-link",
   "-C", "link-arg=--nmagic",
@@ -11,6 +9,12 @@ rustflags = [
   "-C", "link-arg=-Tlink-rp.x",
   "-C", "link-arg=-Tdefmt.x",
   "-C", "no-vectorize-loops",
+  "-C", "link-arg=-Tembedded-test.x"
+]
+
+[target.x86_64-unknown-linux-gnu]
+runner = "embedded-test-std-runner"
+rustflags = [
   "-C", "link-arg=-Tembedded-test.x"
 ]
 

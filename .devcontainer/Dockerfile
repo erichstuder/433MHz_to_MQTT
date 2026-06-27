@@ -25,7 +25,8 @@ RUN cargo install --locked \
     elf2uf2-rs@2.2.0 \
     flip-link@0.1.12 \
     cargo-edit@0.13.11 \
-    probe-rs-tools@0.31.0
+    probe-rs-tools@0.31.0 \
+    embedded-test-std-runner@0.1.1
 
 # Pre-fetch dependencies. This makes the later build much faster.
 WORKDIR /tmp/firmware_dependencies_fetch

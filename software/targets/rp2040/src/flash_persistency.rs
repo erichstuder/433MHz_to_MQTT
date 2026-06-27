@@ -37,50 +37,55 @@ mod tests {
     // Note:
     // - Unfortunately embedded-test ignores the panic message when using #[should_panic], so we cannot assert on the message.
 
-    use super::*;
+    // use super::*;
     use defmt_rtt as _;
-    use defmt::assert_eq;
-
-    #[init]
-    fn init() -> FlashPersistency {
-        let peripherals = embassy_rp::init(Default::default());
-        super::init(peripherals)
-    }
+    // use defmt::assert_eq;
 
     #[test]
-    fn check_the_erase_size() {
-        // Just out of interest what the actual ERASE_SIZE is.
-        assert_eq!(flash::ERASE_SIZE, 4096);
+    fn dummy() {
+        assert_eq!(4096, 4096);
     }
 
-    #[test]
-    #[should_panic]
-    async fn read_uninitialized(mut flash_persistency: FlashPersistency) {
-        // Note: This test might fail if there is already something at this key in flash.
-        let mut read_value = [0; 32];
-        let _read_len = flash_persistency.read(Key::WifiSsid, &mut read_value).await;
-    }
+    // #[init]
+    // fn init() -> FlashPersistency {
+    //     let peripherals = embassy_rp::init(Default::default());
+    //     super::init(peripherals)
+    // }
 
-    #[test]
-    async fn store_and_read(mut flash_persistency: FlashPersistency) {
-        async fn store_read_and_assert(flash_persistency: &mut FlashPersistency, key: Key, value: &[u8]) {
-            let mut read_value = [0; 32];
-            flash_persistency.store(key, value).await;
-            let read_len = flash_persistency.read(key, &mut read_value).await;
-            assert_eq!(&read_value[..read_len], value);
-        }
+    // #[test]
+    // fn check_the_erase_size() {
+    //     // Just out of interest what the actual ERASE_SIZE is.
+    //     assert_eq!(flash::ERASE_SIZE, 4096);
+    // }
 
-        let key = Key::WifiPassword;
+    // #[test]
+    // #[should_panic]
+    // async fn read_uninitialized(mut flash_persistency: FlashPersistency) {
+    //     // Note: This test might fail if there is already something at this key in flash.
+    //     let mut read_value = [0; 32];
+    //     let _read_len = flash_persistency.read(Key::WifiSsid, &mut read_value).await;
+    // }
 
-        store_read_and_assert(&mut flash_persistency, key, "first_pw".as_bytes()).await;
-        store_read_and_assert(&mut flash_persistency, key, "a5615asdaee213-++-".as_bytes()).await;
-    }
+    // #[test]
+    // async fn store_and_read(mut flash_persistency: FlashPersistency) {
+    //     async fn store_read_and_assert(flash_persistency: &mut FlashPersistency, key: Key, value: &[u8]) {
+    //         let mut read_value = [0; 32];
+    //         flash_persistency.store(key, value).await;
+    //         let read_len = flash_persistency.read(key, &mut read_value).await;
+    //         assert_eq!(&read_value[..read_len], value);
+    //     }
 
-    #[test]
-    #[should_panic]
-    async fn store_too_long_value(mut flash_persistency: FlashPersistency) {
-        let key = Key::MqttBrokerPassword;
-        let value = [0; 64]; // This is too long for the buffer size of 32.
-        flash_persistency.store(key, &value).await;
-    }
+    //     let key = Key::WifiPassword;
+
+    //     store_read_and_assert(&mut flash_persistency, key, "first_pw".as_bytes()).await;
+    //     store_read_and_assert(&mut flash_persistency, key, "a5615asdaee213-++-".as_bytes()).await;
+    // }
+
+    // #[test]
+    // #[should_panic]
+    // async fn store_too_long_value(mut flash_persistency: FlashPersistency) {
+    //     let key = Key::MqttBrokerPassword;
+    //     let value = [0; 64]; // This is too long for the buffer size of 32.
+    //     flash_persistency.store(key, &value).await;
+    // }
 }

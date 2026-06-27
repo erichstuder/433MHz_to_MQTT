@@ -53,7 +53,7 @@ mod tests {
     use embedded_storage_file::{NorMemoryInram, NorMemoryAsync};
 
     #[tokio::test]
-    async fn dummy() {
+    async fn store_and_read() {
         let in_ram_memory = NorMemoryInram::<4, 4, 256>::new(1024);
         let mut storage = NorMemoryAsync::new(in_ram_memory);
         storage.erase(0, 1024).await.unwrap();

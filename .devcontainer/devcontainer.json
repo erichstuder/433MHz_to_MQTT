@@ -5,10 +5,8 @@
         "context": ".."
     },
     "runArgs": [
-        "--privileged"
-    ],
-    "mounts": [
-        "source=/media/${localEnv:USER},target=/media/${localEnv:USER},type=bind"
+        "--privileged",
+        "-v", "/media/${localEnv:USER}:/media/vscode"
     ],
     "customizations": {
         "vscode": {

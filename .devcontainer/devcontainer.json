@@ -13,6 +13,7 @@
             "settings": {
                 "rust-analyzer.completion.autoimport.enable": false,
                 "rust-analyzer.inlayHints.typeHints.enable": false,
+                "rust-analyzer.diagnostics.disabled": ["inactive-code"],
 
                 "rust-analyzer.linkedProjects": [
                     "software/lib/Cargo.toml",

@@ -15,10 +15,11 @@ use embassy_rp::peripherals::DMA_CH0;
 
 // use embedded_test;
 
-// TODO: it should not have to align with memory.x but be defined in one place.
-// These values must align with the specifications in memory.x.
-const FLASH_SIZE: usize = 2*1024*1024; // 2MB is valid for Raspberry Pi Pico.
-const ADDRESS_RANGE: Range<u32> = (FLASH_SIZE as u32 - 2*flash::ERASE_SIZE as u32)..FLASH_SIZE as u32;
+const FLASH_SIZE: usize = const_str::parse!(env!("FLASH_MEMORY_LENGTH"), usize);
+
+const DEVICE_DATA_START: u32 = const_str::parse!(env!("DEVICE_DATA_RELATIVE_ORIGIN"), u32);
+const DEVICE_DATA_LENGTH: u32 = const_str::parse!(env!("DEVICE_DATA_LENGTH"), u32);
+const ADDRESS_RANGE: Range<u32> = DEVICE_DATA_START .. (DEVICE_DATA_START + DEVICE_DATA_LENGTH);
 
 bind_interrupts!(struct DmaIrqs {
     DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>;
@@ -73,11 +74,14 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "target-test")]
     #[test]
-    fn check_the_erase_size() {
-        // Just out of interest what the actual ERASE_SIZE is.
+    fn check_some_constants() {
+        // Just out of interest.
         assert_eq!(flash::ERASE_SIZE, 4096);
+        assert_eq!(DEVICE_DATA_START, 2088960);
+        assert_eq!(DEVICE_DATA_LENGTH, 0x2000);
+        assert_eq!(FLASH_SIZE, 2097152);
+        assert_eq!(ADDRESS_RANGE, 2088960..2097152);
     }
 
     #[test]

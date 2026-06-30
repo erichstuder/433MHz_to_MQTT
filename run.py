@@ -70,13 +70,13 @@ if __name__ == '__main__':
         if arguments.build:
             commands += ' && cargo build'
         elif arguments.target_test:
-            commands += ' && cargo test --no-default-features --features target-test'
+            commands += ' && cargo test --lib --no-default-features --features target-test'
             # commands += ' -- --color always' The color option exists but errors as unexpected argument.
-            commands += ' 2>&1 | tee target/target-test-report.txt'
+            commands += ' | tee target/target-test-report.txt'
         elif arguments.host_test:
-            commands += ' && cargo test --no-default-features --features host-test --target x86_64-unknown-linux-gnu'
+            commands += ' && cargo test --lib --no-default-features --features host-test --target x86_64-unknown-linux-gnu'
             commands += ' -- --color always'
-            commands += ' 2>&1 | tee target/host-test-report.txt'
+            commands += ' | tee target/host-test-report.txt'
         elif arguments.upload:
             # TODO: Maybe we could send the device into bootloader mode directly from inside the container?
             import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.

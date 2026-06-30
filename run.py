@@ -3,6 +3,7 @@
 import argparse
 import subprocess
 import time
+import pathlib
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Execute common tasks (building, testing, ...)')
@@ -33,19 +34,23 @@ if __name__ == '__main__':
     software.add_argument('-b', '--build',
                           action='store_true',
                           help='build the software')
-    software.add_argument('-t', '--test',
+    software.add_argument('--target_test', '--tt',
                           action='store_true',
-                          help='test the software')
+                          help='test the software on the target')
+    software.add_argument('--host_test', '--ht',
+                          action='store_true',
+                          help='test the software on the target')
     software.add_argument('-u', '--upload',
                           action='store_true',
                           help='upload the software to RPI after rebuild')
-    software.add_argument('--sv','--set_version_from_tag',
+    software.add_argument('--set_version_from_tag', '--sv',
                           action='store_true',
                           help='set the version in Cargo.toml to the given tag e.g. for release build')
 
     arguments = parser.parse_args()
 
 
+    # Note: cd into doc, features, software, ... is not necessary as this step is done by setting the cwd in subprocess.run.
     if arguments.command == 'doc':
         if arguments.build:
             commands = 'make html SPHINXOPTS="--fail-on-warning"'
@@ -59,10 +64,18 @@ if __name__ == '__main__':
             commands = 'cd steps && cargo test'
 
     elif arguments.command == 'software':
+        commands = 'cd targets/rp2040'
+
         if arguments.build:
-            commands = 'cd firmware && cargo build'
-        elif arguments.test:
-            commands = 'cd firmware && mkdir -p build && cargo test --no-default-features --features test --target x86_64-unknown-linux-gnu | tee build/unit-test-report.txt'
+            commands += ' && cargo build'
+        elif arguments.target_test:
+            commands += ' && cargo test --no-default-features --features target-test'
+            # commands += ' -- --color always' The color option exists but errors as unexpected argument.
+            commands += ' | tee target/target-test-report.txt'
+        elif arguments.host_test:
+            commands += ' && cargo test --no-default-features --features host-test --target x86_64-unknown-linux-gnu'
+            commands += ' -- --color always'
+            commands += ' | tee target/host-test-report.txt'
         elif arguments.upload:
             # TODO: Maybe we could send the device into bootloader mode directly from inside the container?
             import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.
@@ -85,4 +98,6 @@ if __name__ == '__main__':
         elif arguments.set_version_from_tag:
             commands = 'cd firmware && cargo set-version $(git tag | sed "s/^.//")'
 
-    subprocess.run(commands, cwd=arguments.command, shell=True, check=True)
+    this_file_dir = pathlib.Path(__file__).resolve().parent
+    cwd = this_file_dir / arguments.command
+    subprocess.run(commands, cwd=cwd, shell=True, check=True)

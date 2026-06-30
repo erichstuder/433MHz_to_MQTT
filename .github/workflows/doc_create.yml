@@ -15,7 +15,7 @@ jobs:
                 configFile: .devcontainer/devcontainer.json
                 push: never
                 runCmd: |
-                    ./run.py --verbose --pseudo_tty_off software --test
+                    ./run.py --verbose --pseudo_tty_off software --host_test
                     ./run.py --verbose --pseudo_tty_off doc --build
 
         -   name: upload artifact

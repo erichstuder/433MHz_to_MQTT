@@ -65,17 +65,18 @@ if __name__ == '__main__':
 
     elif arguments.command == 'software':
         commands = 'cd targets/rp2040'
+        commands += ' && mkdir -p target' # tee needs the folder to exist
 
         if arguments.build:
             commands += ' && cargo build'
         elif arguments.target_test:
             commands += ' && cargo test --no-default-features --features target-test'
             # commands += ' -- --color always' The color option exists but errors as unexpected argument.
-            commands += ' | tee target/target-test-report.txt'
+            commands += ' 2>&1 | tee target/target-test-report.txt'
         elif arguments.host_test:
             commands += ' && cargo test --no-default-features --features host-test --target x86_64-unknown-linux-gnu'
             commands += ' -- --color always'
-            commands += ' | tee target/host-test-report.txt'
+            commands += ' 2>&1 | tee target/host-test-report.txt'
         elif arguments.upload:
             # TODO: Maybe we could send the device into bootloader mode directly from inside the container?
             import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.

@@ -14,10 +14,10 @@ jobs:
             with:
                 configFile: .devcontainer/devcontainer.json
                 push: never
-                runCmd: ./run.py --verbose --pseudo_tty_off software --test
+                runCmd: ./run.py --verbose --pseudo_tty_off software --host_test
 
         -   name: upload artifact
             uses: actions/upload-artifact@v7
             with:
-                name: unit-test-report
-                path: software/firmware/build/unit-test-report.txt
+                name: host-test-report
+                path: software/targets/rp2040/target/host-test-report.txt

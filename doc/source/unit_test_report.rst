@@ -1,5 +1,5 @@
 Unit Test Report
 ================
 
-.. literalinclude:: auto_generated/unit-test-report.txt
-    :language: text
+.. raw:: html
+    :file: auto_generated/host-test-report.html

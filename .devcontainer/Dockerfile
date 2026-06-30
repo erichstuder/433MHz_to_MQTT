@@ -78,7 +78,7 @@ RUN python3 -m pip install --verbose \
     sphinx-gherkindoc==3.6.4 \
     setuptools==82.0.1 \
     pillow==12.2.0 \
-    ansi2html==1.9.2 \
+    ansi2html==1.9.2
 
 # RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
 #     locale-gen

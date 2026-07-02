@@ -120,7 +120,7 @@ def run_cargo_modules(app: Sphinx):
                       '--no-externs', '--no-fns', '--no-owns', '--no-traits', '--no-types'], stdout=subprocess.PIPE)
     subprocess.run(['dot', '-Tpng', '-o', software_dependencies_path], stdin=cargo_process.stdout, check=True)
 
-def copy_unit_test_report(app: Sphinx):
+def copy_host_test_report(app: Sphinx):
     source_path = '../software/targets/rp2040/target/host-test-report.txt'
     dest_path = os.path.join(app.srcdir, 'auto_generated/host-test-report.txt')
 
@@ -138,7 +138,26 @@ def copy_unit_test_report(app: Sphinx):
     with open(txt_file, "r") as fin, open(html_file, "w") as fout:
         subprocess.run(["ansi2html"], stdin=fin, stdout=fout, check=True)
 
+def copy_lib_test_report(app: Sphinx):
+    source_path = '../software/lib/target/unit-test-report.txt'
+    dest_path = os.path.join(app.srcdir, 'auto_generated/unit-test-report.txt')
+
+    if os.path.exists(dest_path):
+        os.remove(dest_path)
+
+    try:
+        subprocess.run(['cp', source_path, dest_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Copy of {source_path} failed. Were the software tests already run?")
+        print(f"Details: {e}\n")
+
+    txt_file = os.path.join(app.srcdir, "auto_generated", "unit-test-report.txt")
+    html_file = os.path.join(app.srcdir, "auto_generated", "unit-test-report.html")
+    with open(txt_file, "r") as fin, open(html_file, "w") as fout:
+        subprocess.run(["ansi2html"], stdin=fin, stdout=fout, check=True)
+
 def setup(app: Sphinx):
     app.connect("builder-inited", run_gherkindoc)
     app.connect("builder-inited", run_cargo_modules)
-    app.connect("builder-inited", copy_unit_test_report)
+    app.connect("builder-inited", copy_lib_test_report)
+    app.connect("builder-inited", copy_host_test_report)

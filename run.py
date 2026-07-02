@@ -78,6 +78,7 @@ if __name__ == '__main__':
             commands += ' -- --color always'
             commands += ' | tee target/host-test-report.txt'
             commands += ' && cd - && cd lib'
+            commands += ' && mkdir -p target' # tee needs the folder to exist
             commands += ' && cargo test --lib'
             commands += ' -- --color always'
             commands += ' | tee target/unit-test-report.txt'

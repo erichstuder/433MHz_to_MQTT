@@ -105,4 +105,8 @@ if __name__ == '__main__':
 
     this_file_dir = pathlib.Path(__file__).resolve().parent
     cwd = this_file_dir / arguments.command
-    subprocess.run(commands, cwd=cwd, shell=True, check=True)
+    try:
+        subprocess.run(commands, cwd=cwd, shell=True, check=True)
+    except (subprocess.CalledProcessError, KeyboardInterrupt) as e:
+        exit_code = getattr(e, 'returncode', 1)
+        exit(exit_code)

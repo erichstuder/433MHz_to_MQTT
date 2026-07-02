@@ -77,6 +77,10 @@ if __name__ == '__main__':
             commands += ' && cargo test --lib --no-default-features --features host-test --target x86_64-unknown-linux-gnu'
             commands += ' -- --color always'
             commands += ' | tee target/host-test-report.txt'
+            commands += ' && cd - && cd lib'
+            commands += ' && cargo test --lib'
+            commands += ' -- --color always'
+            commands += ' | tee target/unit-test-report.txt'
         elif arguments.upload:
             # TODO: Maybe we could send the device into bootloader mode directly from inside the container?
             import pyudev # Import only here, as this file is also used on github runners without hardware access. So this is not installed and won't be used there.

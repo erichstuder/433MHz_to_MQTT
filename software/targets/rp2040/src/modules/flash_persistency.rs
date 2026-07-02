@@ -7,13 +7,7 @@ pub use lib::persistency::Key;
 
 use embassy_rp::bind_interrupts;
 use embassy_rp::flash::{self, Flash};
-use embassy_rp::peripherals::FLASH;
-use embassy_rp::peripherals::DMA_CH0;
-
-// use core::panic::PanicInfo;
-// use embassy_rp::Peri;
-
-// use embedded_test;
+use embassy_rp::peripherals::{FLASH, DMA_CH0};
 
 const FLASH_SIZE: usize = const_str::parse!(env!("FLASH_MEMORY_LENGTH"), usize);
 
@@ -39,6 +33,7 @@ mod tests {
     // Unfortunately embedded-test ignores the panic message when using #[should_panic], so we cannot assert on the message.
 
     use super::*;
+    use lib::persistency::PersistencyTrait;
 
     #[cfg(feature = "host-test")]
     use {

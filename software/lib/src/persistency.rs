@@ -8,7 +8,7 @@ use sequential_storage::map::{MapStorage, MapConfig};
 
 const DATA_BUFFER_SIZE: usize = 32;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum Key {
     WifiSsid,
@@ -16,6 +16,14 @@ pub enum Key {
     MqttHostIp,
     MqttBrokerUsername,
     MqttBrokerPassword,
+}
+
+#[cfg_attr(test, mockall::automock)]
+pub trait PersistencyTrait {
+    #[allow(async_fn_in_trait)]
+    async fn store(&mut self, key: Key, value: &[u8]);
+    #[allow(async_fn_in_trait)]
+    async fn read(&mut self, key: Key, value: &mut[u8]) -> usize;
 }
 
 pub struct Persistency<NF: NorFlash> {
@@ -31,13 +39,15 @@ impl<NF: NorFlash> Persistency<NF> {
         );
         Self { map_storage }
     }
+}
 
-    pub async fn store(&mut self, key: Key, value: &[u8]) {
+impl<NF: NorFlash> PersistencyTrait for Persistency<NF> {
+    async fn store(&mut self, key: Key, value: &[u8]) {
         let mut data_buffer = [0; DATA_BUFFER_SIZE];
         self.map_storage.store_item(&mut data_buffer, &(key as u8), &value).await.unwrap();
     }
 
-    pub async fn read(&mut self, key: Key, value: &mut[u8]) -> usize {
+    async fn read(&mut self, key: Key, value: &mut[u8]) -> usize {
         let mut data_buffer = [0; DATA_BUFFER_SIZE];
         let result = self.map_storage.fetch_item::<&[u8]>(&mut data_buffer, &(key as u8)).await.unwrap().unwrap();
         value[..result.len()].copy_from_slice(result);

@@ -9,6 +9,6 @@ embedded-storage-async = "=0.4.1"
 sequential-storage = { version = "7.2.0", features = ["defmt"]}
 
 [dev-dependencies]
-tokio = { version = "=1.52.3", features = ["macros", "rt"] }
+tokio = { version = "=1.52.3", features = ["macros", "rt", "sync"] }
 embedded-storage-file = "=0.2.0"
 mockall = "=0.15.0"

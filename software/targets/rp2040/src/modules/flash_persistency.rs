@@ -1,11 +1,9 @@
-use embassy_rp::Peripherals;
-
 use core::ops::Range;
 
 use lib::persistency::Persistency;
 pub use lib::persistency::Key;
 
-use embassy_rp::bind_interrupts;
+use embassy_rp::{bind_interrupts, Peri};
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 
@@ -21,9 +19,9 @@ bind_interrupts!(struct DmaIrqs {
 
 pub type FlashPersistency = Persistency<Flash<'static, FLASH, flash::Async, FLASH_SIZE>>;
 
-pub fn init(peripherals: Peripherals) -> FlashPersistency {
-    let flash = Flash::new(peripherals.FLASH, peripherals.DMA_CH0, DmaIrqs);
-    Persistency::new(flash, ADDRESS_RANGE)
+pub fn init(flash: Peri<'static, FLASH>, dma_ch0: Peri<'static, DMA_CH0>) -> FlashPersistency {
+    let f = Flash::new(flash, dma_ch0, DmaIrqs);
+    Persistency::new(f, ADDRESS_RANGE)
 }
 
 #[cfg(test)]
@@ -65,7 +63,7 @@ mod tests {
         #[cfg(feature = "target-test")]
         {
             let peripherals = embassy_rp::init(Default::default());
-            super::init(peripherals)
+            super::init(peripherals.FLASH, peripherals.DMA_CH0)
         }
     }
 

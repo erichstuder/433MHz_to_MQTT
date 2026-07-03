@@ -24,11 +24,6 @@ impl <'a, P: PersistencyTrait, C: Command> Parser<'a, P, C> {
     pub async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8]) -> Result<usize, &'static str> {
         const STORE_COMMAND: &[u8] = b"store ";
         const READ_COMMAND: &[u8] = b"read ";
-        // if msg == b"enter bootloader" {
-        //     embassy_rp::rom_data::reset_to_usb_boot(0, 0); //TOOD: fix. do we need this device specific command here? could it be injected?
-        //     // Note: probably this message won't be seen, because of immediate restart.
-        //     Ok(Self::copy_to_beginning(answer, b"entering bootloader now"))
-        // }
         if msg == self.additional_command.cmd_str() {
             self.additional_command.run(answer)
         }

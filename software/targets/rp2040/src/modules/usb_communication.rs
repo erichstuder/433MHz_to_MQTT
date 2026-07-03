@@ -14,9 +14,9 @@ use static_cell::StaticCell;
 
 type UsbDriver = usb::Driver<'static, USB>;
 
-pub fn create(usb: Peri<'static, USB>, spawner: Spawner) -> (UsbSender, UsbReceiver) {
-    const MAX_PACKET_SIZE: u8 = 64;
+pub const MAX_PACKET_SIZE: u8 = 64;
 
+pub fn create(usb: Peri<'static, USB>, spawner: Spawner) -> (UsbSender, UsbReceiver) {
     bind_interrupts!(struct Irqs {
         USBCTRL_IRQ => usb::InterruptHandler<USB>;
     });

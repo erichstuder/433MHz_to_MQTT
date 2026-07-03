@@ -16,13 +16,13 @@ pub trait Actions {
     async fn parse_message(&mut self, msg: &[u8], answer: &mut [u8]) -> Result<usize, &'static str>;
 }
 
-pub struct Terminal<G, const MAX_PACKET_SIZE: usize> {
-    gateway: G,
+pub struct Terminal<A, const MAX_PACKET_SIZE: usize> {
+    actions: A,
 }
 
-impl<G: Actions, const MAX_PACKET_SIZE: usize> Terminal<G, MAX_PACKET_SIZE> {
-    pub fn new(gateway: G) -> Self {
-        Self{ gateway }
+impl<A: Actions, const MAX_PACKET_SIZE: usize> Terminal<A, MAX_PACKET_SIZE> {
+    pub fn new(actions: A) -> Self {
+        Self{ actions }
     }
 
     pub async fn run(&mut self) -> ! {
@@ -41,16 +41,16 @@ impl<G: Actions, const MAX_PACKET_SIZE: usize> Terminal<G, MAX_PACKET_SIZE> {
                     }
                     else {
                         let mut answer = [0u8; 300];
-                        match self.gateway.parse_message(&receive_buffer[..receive_buffer_index], &mut answer).await {
+                        match self.actions.parse_message(&receive_buffer[..receive_buffer_index], &mut answer).await {
                             Ok(length) => {
-                                self.gateway.send(&answer[..length]).await.unwrap();
+                                self.actions.send(&answer[..length]).await.unwrap();
                             },
                             Err(e) => {
-                                self.gateway.send(b"ERROR: ").await.unwrap();
-                                self.gateway.send(&e.as_bytes()).await.unwrap();
+                                self.actions.send(b"ERROR: ").await.unwrap();
+                                self.actions.send(&e.as_bytes()).await.unwrap();
                             },
                         };
-                        self.gateway.send("\n".as_bytes()).await.unwrap();
+                        self.actions.send("\n".as_bytes()).await.unwrap();
                     }
                     receive_buffer_index = 0;
                 }
@@ -60,9 +60,9 @@ impl<G: Actions, const MAX_PACKET_SIZE: usize> Terminal<G, MAX_PACKET_SIZE> {
                         receive_buffer_index += 1;
                     } else {
                         ignore_message = true;
-                        self.gateway.send("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
-                        self.gateway.send(&receive_buffer).await.unwrap();
-                        self.gateway.send("...\n".as_bytes()).await.unwrap();
+                        self.actions.send("receive buffer overflow, this message is ignored: ".as_bytes()).await.unwrap();
+                        self.actions.send(&receive_buffer).await.unwrap();
+                        self.actions.send("...\n".as_bytes()).await.unwrap();
                         receive_buffer_index = 0;
                     }
                 }
@@ -72,13 +72,13 @@ impl<G: Actions, const MAX_PACKET_SIZE: usize> Terminal<G, MAX_PACKET_SIZE> {
 
     async fn await_package(&mut self, bytes: &mut [u8]) -> usize {
         loop {
-            match self.gateway.read_packet(bytes).await {
+            match self.actions.read_packet(bytes).await {
                 Ok(byte_cnt) => return byte_cnt,
                 Err(e) => {
                     match e {
                         Error::BufferOverflow => {
-                            self.gateway.send(b"receive buffer overflow, this message is ignored: ").await.unwrap();
-                            self.gateway.send(&bytes).await.unwrap();
+                            self.actions.send(b"receive buffer overflow, this message is ignored: ").await.unwrap();
+                            self.actions.send(&bytes).await.unwrap();
                         },
                         Error::Disconnected => {
                             // May happen. No problem.

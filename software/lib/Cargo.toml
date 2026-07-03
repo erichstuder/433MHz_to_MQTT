@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2024"
 
 [dependencies]
-defmt = "=1.1.0"
+defmt = "=1.1.1"
 embedded-storage-async = "=0.4.1"
 sequential-storage = { version = "7.2.0", features = ["defmt"]}
 

@@ -74,13 +74,15 @@ if __name__ == '__main__':
             # commands += ' -- --color always' The color option exists but errors as unexpected argument.
             commands += ' | tee target/target-test-report.txt'
         elif arguments.host_test:
+            # Note: Tests are run with  --test-threads=1 to guarantee an ordered output. This is probably ok as long as the tests dont take too long.
             commands += ' && cargo test --lib --no-default-features --features host-test --target x86_64-unknown-linux-gnu'
-            commands += ' -- --color always'
+            commands += ' -- --color always --test-threads=1'
             commands += ' | tee target/host-test-report.txt'
+
             commands += ' && cd - && cd lib'
             commands += ' && mkdir -p target' # tee needs the folder to exist
             commands += ' && cargo test --lib'
-            commands += ' -- --color always'
+            commands += ' -- --color always --test-threads=1'
             commands += ' | tee target/unit-test-report.txt'
         elif arguments.upload:
             # # TODO: Maybe we could send the device into bootloader mode directly from inside the container?

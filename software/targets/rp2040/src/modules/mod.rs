@@ -3,3 +3,4 @@ pub mod usb_communication;
 
 pub mod flash_persistency;
 pub mod remote_receiver;
+pub mod mqtt;

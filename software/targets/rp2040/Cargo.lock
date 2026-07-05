@@ -754,6 +754,7 @@ dependencies = [
  "embedded-storage-file",
  "embedded-test",
  "embedded-test-linker-script",
+ "fixed",
  "lib",
  "panic-probe",
  "portable-atomic",

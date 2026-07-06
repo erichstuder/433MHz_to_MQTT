@@ -1,6 +1,7 @@
 //! Sets up and handles the MQTT connection.
 
 use core::str;
+use core::marker::PhantomData;
 use defmt::{info, error, unwrap};
 use embassy_executor::{task, Spawner};
 use embassy_rp::{Peri, gpio, dma};
@@ -18,6 +19,7 @@ use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
 use lib::persistency::{self, PersistencyTrait};
+use lib::misc::parse_ip;
 
 type MqttClientMutexed = Mutex<CriticalSectionRawMutex, rust_mqtt::client::Client<'static, embassy_net::tcp::TcpSocket<'static>, rust_mqtt::buffer::BumpBuffer<'static>, 8, 16, 16, 4>>;
 
@@ -30,30 +32,74 @@ pub struct WifiHw<'d> {
     pub dma_ch1: Peri<'d, DMA_CH1>,
 }
 
-pub struct MQTT {
+pub struct MQTT<P, I> {
     client_mutexed: &'static MqttClientMutexed,
+    _phantom_data: PhantomData<(P, I)>,
 }
 
-impl MQTT {
-    pub async fn new<P, I>(persistency: &'static mut P, hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Option<Self>
-    where
-        P: PersistencyTrait,
-        I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH1>> + 'static,
-    {
-        let (driver, mut control) = MQTT::setup_cyw43(hw, spawner, irq).await;
-        let network_stack = MQTT::setup_network(driver, spawner);
+impl<P, I> MQTT<P, I>
+where
+    P: PersistencyTrait,
+    I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH1>> + 'static,
+{
+    pub async fn new(persistency: &'static mut P, hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Self {
+        let (driver, control) = Self::setup_cyw43(hw, spawner, irq).await;
+        let network_stack = Self::setup_network(driver, spawner);
+        Self::connect_wifi(persistency, control, network_stack).await;
+        let client_mutexed = Self::connect_broker(persistency, network_stack, spawner).await;
 
+        Self {
+            client_mutexed,
+            _phantom_data: PhantomData,
+        }
+    }
+
+    async fn setup_cyw43(mut hw: WifiHw<'static>, spawner: Spawner, irq: I) -> (cyw43::NetDriver<'static>, cyw43::Control<'static>) {
+        let firmware = aligned_bytes!("../../../../cyw43-firmware/43439A0.bin");
+        let clm = aligned_bytes!("../../../../cyw43-firmware/43439A0_clm.bin");
+        let nvram = aligned_bytes!("../../../../cyw43-firmware/nvram_rp2040.bin");
+
+        let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
+        let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
+
+        let spi = cyw43_pio::PioSpi::new(
+            &mut hw.pio_1.common,
+            hw.pio_1.sm0,
+            DEFAULT_CLOCK_DIVIDER,
+            hw.pio_1.irq0,
+            cs,
+            hw.pin_24,
+            hw.pin_29,
+            dma::Channel::new(hw.dma_ch1, irq)
+        );
+
+        static CYW43_STATE: StaticCell<cyw43::State> = StaticCell::new();
+        let cyw43_state = CYW43_STATE.init(cyw43::State::new());
+        let (net_device, mut control, runner) = cyw43::new(cyw43_state, pwr, spi, firmware, nvram).await;
+        spawner.spawn(cyw43_task(runner).unwrap());
+
+        control.init(clm).await;
+        control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
+
+        (net_device, control)
+    }
+
+    fn setup_network(driver: cyw43::NetDriver<'static>, spawner: Spawner) -> embassy_net::Stack<'static>{
+        let config = embassy_net::Config::dhcpv4(Default::default());
+        let mut rng = RoscRng;
+        let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
+        static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
+        let (network_stack, network_runner) = embassy_net::new(driver, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
+        spawner.spawn(net_task(network_runner).unwrap());
+        network_stack
+    }
+
+    async fn connect_wifi(persistency: &mut P, mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
         let mut wifi_ssid = [0u8; 32];
         let mut wifi_password = [0u8; 32];
-        let mut mqtt_host_ip = [0u8; 32];
-        let mut mqtt_broker_username = [0u8; 32];
-        let mut mqtt_broker_password = [0u8; 64];
 
         persistency.read(persistency::Key::WifiSsid, &mut wifi_ssid).await;
         persistency.read(persistency::Key::WifiPassword, &mut wifi_password).await;
-        persistency.read(persistency::Key::MqttHostIp, &mut mqtt_host_ip).await;
-        persistency.read(persistency::Key::MqttBrokerUsername, &mut mqtt_broker_username).await;
-        persistency.read(persistency::Key::MqttBrokerPassword, &mut mqtt_broker_password).await;
 
         loop {
             match control.join(str::from_utf8(&wifi_ssid).unwrap(), JoinOptions::new(&wifi_password)).await {
@@ -70,10 +116,18 @@ impl MQTT {
             Timer::after_millis(100).await;
         }
         info!("DHCP is now up!");
+    }
 
+    async fn connect_broker(persistency: &mut P, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed {
+        let mut mqtt_host_ip = [0u8; 32];
+        let mut mqtt_broker_username = [0u8; 32];
+        let mut mqtt_broker_password = [0u8; 64];
 
-        // TODO: ab hier wird mit dem broker verbunden
-        let (ip0, ip1, ip2, ip3) = Self::parse_ip(&mqtt_host_ip).unwrap();
+        persistency.read(persistency::Key::MqttHostIp, &mut mqtt_host_ip).await;
+        persistency.read(persistency::Key::MqttBrokerUsername, &mut mqtt_broker_username).await;
+        persistency.read(persistency::Key::MqttBrokerPassword, &mut mqtt_broker_password).await;
+
+        let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip).unwrap();
         let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
         let remote_endpoint = (address, 1883);
 
@@ -127,75 +181,9 @@ impl MQTT {
         //     Timer::after(Duration::from_millis(2000)).await;
         // }
 
-        spawner.spawn(unwrap!(ping_task(client_mutexed)));
+        spawner.spawn(ping_task(client_mutexed).unwrap());
 
-        Some(Self {
-            client_mutexed,
-        })
-    }
-
-    async fn setup_cyw43<I>(mut hw: WifiHw<'static>, spawner: Spawner, irq: I) -> (cyw43::NetDriver<'static>, cyw43::Control<'static>)
-    where
-        // TODO: this is used in muliple places => make its own type?
-        I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH1>> + 'static,
-    {
-        let fw = aligned_bytes!("../../../../cyw43-firmware/43439A0.bin");
-        let clm = aligned_bytes!("../../../../cyw43-firmware/43439A0_clm.bin");
-        let nvram = aligned_bytes!("../../../../cyw43-firmware/nvram_rp2040.bin");
-
-        let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
-        let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
-
-        let spi = cyw43_pio::PioSpi::new(
-            &mut hw.pio_1.common,
-            hw.pio_1.sm0,
-            DEFAULT_CLOCK_DIVIDER,
-            hw.pio_1.irq0,
-            cs,
-            hw.pin_24,
-            hw.pin_29,
-            dma::Channel::new(hw.dma_ch1, irq)
-        );
-
-        static CYW43_STATE: StaticCell<cyw43::State> = StaticCell::new();
-        let cyw43_state = CYW43_STATE.init(cyw43::State::new());
-        let (net_device, mut control, runner) = cyw43::new(cyw43_state, pwr, spi, fw, nvram).await;
-        spawner.spawn(unwrap!(cyw43_task(runner)));
-
-        control.init(clm).await;
-        control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
-
-        (net_device, control)
-    }
-
-    fn setup_network(driver: cyw43::NetDriver<'static>, spawner: Spawner) -> embassy_net::Stack<'static>{
-        let config = embassy_net::Config::dhcpv4(Default::default());
-        let mut rng = RoscRng;
-        let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
-        static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
-        let (network_stack, network_runner) = embassy_net::new(driver, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
-        spawner.spawn(unwrap!(net_task(network_runner)));
-        network_stack
-    }
-
-    fn parse_ip(mqtt_host_ip: &[u8]) -> Option<(u8, u8, u8, u8)> {
-        let mut ip = [0u8; 4];
-        let mut count = 0;
-        for (n, part) in mqtt_host_ip.split(|&b| b == b'.').enumerate() {
-            if n >= ip.len() {
-                error!("invalid mqtt host ip format");
-                return None
-            }
-            let part = str::from_utf8(part).unwrap();
-            let part = part.parse::<u8>().unwrap();
-            ip[n] = part;
-            count += 1;
-        }
-        if count != 4 {
-            error!("invalid mqtt host ip format");
-            return None
-        }
-        Some((ip[0], ip[1], ip[2], ip[3]))
+        client_mutexed
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {
@@ -205,8 +193,6 @@ impl MQTT {
             &rust_mqtt::client::options::PublicationOptions::new(rust_mqtt::client::options::TopicReference::Name(topic.as_borrowed())).exactly_once(),
             payload.into()
         ).await);
-
-
     }
 }
 
@@ -230,50 +216,6 @@ async fn ping_task(client: &'static MqttClientMutexed) -> ! {
         match result {
             Ok(()) => info!("ping sent"),
             Err(mqtt_error) => info!("ping NOT sent: {:?}", mqtt_error),
-        }
-    }
-}
-
-#[cfg(test)]
-mod test_for_parse_ip {
-    use super::MQTT;
-    use std::panic;
-
-    #[test]
-    fn pass() {
-        let mqtt_host_ip = "123.55.6.2";
-        let (ip0, ip1, ip2, ip3) = MQTT::parse_ip(mqtt_host_ip).unwrap();
-        assert_eq!(ip0, 123);
-        assert_eq!(ip1, 55);
-        assert_eq!(ip2, 6);
-        assert_eq!(ip3, 2);
-    }
-
-    #[test]
-    fn too_long() {
-        let mqtt_host_ip = "123.55.6.2.42";
-        match MQTT::parse_ip(mqtt_host_ip) {
-            Some(_) => assert!(false, "Expected None, but got Some"),
-            None => assert!(true),
-        }
-    }
-
-    #[test]
-    fn too_short() {
-        let mqtt_host_ip = "123.55.6";
-        match MQTT::parse_ip(mqtt_host_ip) {
-            Some(_) => assert!(false, "Expected None, but got Some"),
-            None => assert!(true),
-        }
-    }
-
-    #[test]
-    fn letters() {
-        let mqtt_host_ip = "123.55.6.X";
-        let result = panic::catch_unwind(|| { MQTT::parse_ip(mqtt_host_ip) });
-        match result {
-            Ok(_) => assert!(false, "Expected panic, but got Ok"),
-            Err(_) => assert!(true),
         }
     }
 }

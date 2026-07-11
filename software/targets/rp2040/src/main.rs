@@ -1,20 +1,32 @@
 #![no_main]
 #![cfg_attr(not(feature = "host-test"), no_std)]
-#![deny(unsafe_code)]
 
 use embassy_executor::{Spawner, main, task};
-use embassy_rp as _;
+use embassy_rp::{
+    bind_interrupts,
+    pio::{self, Pio},
+    peripherals::{DMA_CH0, DMA_CH1, PIO1},
+};
 use embassy_usb::driver::EndpointError as UsbEndPointError;
+use embassy_sync::{
+    mutex::Mutex,
+    blocking_mutex::raw::CriticalSectionRawMutex,
+};
 use static_cell::StaticCell;
 use defmt::unwrap;
 use defmt_rtt as _;
 use panic_probe as _;
 
-use lib::parser::{self, Parser};
-use lib::terminal::{self, Terminal};
+use lib::{
+    parser::{self, Parser},
+    persistency::{self, PersistencyTrait},
+    terminal::{self, Terminal},
+};
 use firmware::modules::{
-    usb_communication::{self, UsbSender, UsbReceiver},
     flash_persistency::{self, FlashPersistency},
+    mqtt::{self, MQTT, WifiHw},
+    // remote_receiver::RemoteReceiver,
+    usb_communication::{self, UsbSender, UsbReceiver},
 };
 
 struct EnterBootloader;
@@ -33,7 +45,7 @@ impl parser::Command for EnterBootloader {
     }
 }
 
-type MyParser = Parser<'static, FlashPersistency, EnterBootloader>;
+type MyParser = Parser<ParserActions<'static>, EnterBootloader>;
 type MyTerminal = Terminal<TerminalActions, { usb_communication::MAX_PACKET_SIZE as usize }>;
 
 struct TerminalActions {
@@ -70,24 +82,117 @@ impl terminal::Actions for TerminalActions{
     }
 }
 
+type MutexedPersistency = Mutex<CriticalSectionRawMutex, FlashPersistency>;
+
+struct ParserActions<'d> {
+    persistency: &'d MutexedPersistency,
+}
+
+impl<'d> ParserActions<'d> {
+    pub fn new(persistency: &'d MutexedPersistency) -> Self {
+        Self {
+            persistency,
+        }
+    }
+
+    fn id_to_key(id: parser::ValueId) -> persistency::Key {
+        match id {
+            parser::ValueId::WifiSsid => persistency::Key::WifiSsid,
+            parser::ValueId::WifiPassword => persistency::Key::WifiPassword,
+            parser::ValueId::MqttHostIp => persistency::Key::MqttHostIp,
+            parser::ValueId::MqttBrokerUsername => persistency::Key::MqttBrokerUsername,
+            parser::ValueId::MqttBrokerPassword => persistency::Key::MqttBrokerPassword,
+        }
+    }
+}
+
+impl<'d> parser::Actions for ParserActions<'d> {
+    async fn store(&mut self, id: parser::ValueId, value: &[u8]) {
+        let mut p = self.persistency.lock().await;
+        let key = Self::id_to_key(id);
+        p.store(key, value).await
+    }
+
+    async fn get(&mut self, id: parser::ValueId, buffer: &mut [u8]) -> usize  {
+        let mut p = self.persistency.lock().await;
+        let key = Self::id_to_key(id);
+        p.read(key, buffer).await
+    }
+}
+
+
+struct MqttActions<'d> {
+    persistency: &'d MutexedPersistency,
+}
+
+impl<'d> MqttActions<'d> {
+    pub fn new(persistency: &'d MutexedPersistency) -> Self {
+        Self {
+            persistency,
+        }
+    }
+}
+
+impl<'d> mqtt::Actions for MqttActions<'d> {
+    async fn get(&mut self, id: mqtt::ValueId, buffer: &mut [u8]) -> usize  {
+        let key = match id {
+            mqtt::ValueId::WifiSsid => persistency::Key::WifiSsid,
+            mqtt::ValueId::WifiPassword => persistency::Key::WifiPassword,
+            mqtt::ValueId::MqttHostIp => persistency::Key::MqttHostIp,
+            mqtt::ValueId::MqttBrokerUsername => persistency::Key::MqttBrokerUsername,
+            mqtt::ValueId::MqttBrokerPassword => persistency::Key::MqttBrokerPassword,
+        };
+        let mut p = self.persistency.lock().await;
+        p.read(key, buffer).await
+    }
+}
+
+
+bind_interrupts!(struct DmaIrq {
+    DMA_IRQ_0 =>
+        embassy_rp::dma::InterruptHandler<DMA_CH0>,
+        embassy_rp::dma::InterruptHandler<DMA_CH1>;
+});
+
+bind_interrupts!(struct Pio1Irqs {
+    PIO1_IRQ_0 => pio::InterruptHandler<PIO1>;
+});
+
 #[main]
 async fn main(spawner: Spawner) {
     let peripherals = embassy_rp::init(Default::default());
 
     let (usb_sender, usb_receiver) = usb_communication::create(peripherals.USB, spawner);
 
-    static PERSISTENCY: StaticCell<FlashPersistency> = StaticCell::new();
-    let persistency = PERSISTENCY.init(flash_persistency::init(peripherals.FLASH, peripherals.DMA_CH0));
+    let flash_persistency = flash_persistency::init(peripherals.FLASH, peripherals.DMA_CH0, DmaIrq);
+    let mutexed_persistency = MutexedPersistency::new(flash_persistency);
+    static MUTEXED_PERSISTENCY: StaticCell<MutexedPersistency> = StaticCell::new();
+    let persistency = MUTEXED_PERSISTENCY.init(mutexed_persistency);
 
     let additional_command = EnterBootloader;
 
-    let parser = Parser::new(persistency, additional_command);
+    let parser_actions = ParserActions::new(persistency);
+    let parser = Parser::new(parser_actions, additional_command);
 
     let terminal_actions = TerminalActions::new(usb_sender, usb_receiver, parser);
 
     let terminal = MyTerminal::new(terminal_actions);
 
     spawner.spawn(unwrap!(run_terminal(terminal)));
+
+    let pio = Pio::new(peripherals.PIO1, Pio1Irqs);
+
+    let wifi_hw = WifiHw {
+        pin_23: peripherals.PIN_23,
+        pin_24: peripherals.PIN_24,
+        pin_25: peripherals.PIN_25,
+        pin_29: peripherals.PIN_29,
+        pio_1: pio,
+        dma_ch1: peripherals.DMA_CH1,
+    };
+
+    let my_mqtt_actions = MqttActions::new(persistency);
+    let mqtt = MQTT::new(my_mqtt_actions, wifi_hw, spawner, DmaIrq);
 }
 
 #[task]

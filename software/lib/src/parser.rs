@@ -1,6 +1,21 @@
 //! Parses received messages, forwards them accordingly and returns the answer.
 
-use crate::persistency::{Key, PersistencyTrait};
+#[derive(PartialEq)]
+pub enum ValueId {
+    WifiSsid,
+    WifiPassword,
+    MqttHostIp,
+    MqttBrokerUsername,
+    MqttBrokerPassword,
+}
+
+#[cfg_attr(test, mockall::automock)]
+pub trait Actions {
+    #[allow(async_fn_in_trait)]
+    async fn store(&mut self, id: ValueId, value: &[u8]);
+    #[allow(async_fn_in_trait)]
+    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> usize;
+}
 
 #[cfg_attr(test, mockall::automock)]
 pub trait Command {
@@ -8,15 +23,15 @@ pub trait Command {
     fn run(&self, answer: &mut [u8]) -> Result<usize, &'static str>;
 }
 
-pub struct Parser<'a, P: PersistencyTrait, C: Command> {
-    persistency: &'a mut P,
+pub struct Parser<A, C> {
+    actions: A,
     additional_command: C,
 }
 
-impl <'a, P: PersistencyTrait, C: Command> Parser<'a, P, C> {
-    pub fn new(persistency: &'a mut P, additional_command: C) -> Self {
+impl <A: Actions, C: Command> Parser<A, C> {
+    pub fn new(actions: A, additional_command: C) -> Self {
         Self {
-            persistency,
+            actions,
             additional_command,
         }
     }
@@ -107,27 +122,27 @@ impl <'a, P: PersistencyTrait, C: Command> Parser<'a, P, C> {
 
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
-            self.persistency.store(Key::WifiSsid, value).await;
+            self.actions.store(ValueId::WifiSsid, value).await;
             Ok(())
         }
         else if parameters.starts_with(WIFI_PASSWORD) {
             let value = &parameters[WIFI_PASSWORD.len()..];
-            self.persistency.store(Key::WifiPassword, value).await;
+            self.actions.store(ValueId::WifiPassword, value).await;
             Ok(())
         }
         else if parameters.starts_with(MQTT_HOST_IP) {
             let value = &parameters[MQTT_HOST_IP.len()..];
-            self.persistency.store(Key::MqttHostIp, value).await;
+            self.actions.store(ValueId::MqttHostIp, value).await;
             Ok(())
         }
         else if parameters.starts_with(MQTT_BROKER_USERNAME) {
             let value = &parameters[MQTT_BROKER_USERNAME.len()..];
-            self.persistency.store(Key::MqttBrokerUsername, value).await;
+            self.actions.store(ValueId::MqttBrokerUsername, value).await;
             Ok(())
         }
         else if parameters.starts_with(MQTT_BROKER_PASSWORD) {
             let value = &parameters[MQTT_BROKER_PASSWORD.len()..];
-            self.persistency.store(Key::MqttBrokerPassword, value).await;
+            self.actions.store(ValueId::MqttBrokerPassword, value).await;
             Ok(())
         }
         else {
@@ -137,19 +152,19 @@ impl <'a, P: PersistencyTrait, C: Command> Parser<'a, P, C> {
 
     async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8]) -> Result<usize, &'static str>{
         if parameters.starts_with(b"wifi_ssid") {
-            Ok(self.persistency.read(Key::WifiSsid, answer).await)
+            Ok(self.actions.get(ValueId::WifiSsid, answer).await)
         }
         else if parameters.starts_with(b"wifi_password") {
-            Ok(self.persistency.read(Key::WifiPassword, answer).await)
+            Ok(self.actions.get(ValueId::WifiPassword, answer).await)
         }
         else if parameters.starts_with(b"mqtt_host_ip") {
-            Ok(self.persistency.read(Key::MqttHostIp, answer).await)
+            Ok(self.actions.get(ValueId::MqttHostIp, answer).await)
         }
         else if parameters.starts_with(b"mqtt_broker_username") {
-            Ok(self.persistency.read(Key::MqttBrokerUsername, answer).await)
+            Ok(self.actions.get(ValueId::MqttBrokerUsername, answer).await)
         }
         else if parameters.starts_with(b"mqtt_broker_password") {
-            Ok(self.persistency.read(Key::MqttBrokerPassword, answer).await)
+            Ok(self.actions.get(ValueId::MqttBrokerPassword, answer).await)
         }
         else if parameters.starts_with(b"help") {
             Ok(Self::copy_to_beginning(answer, concat!(
@@ -177,20 +192,19 @@ impl <'a, P: PersistencyTrait, C: Command> Parser<'a, P, C> {
 mod tests {
     use super::*;
     use tokio;
-    use crate::persistency::MockPersistencyTrait;
 
-    type TestParser = Parser<'static, MockPersistencyTrait, MockCommand>;
+    type TestParser = Parser<MockActions, MockCommand>;
 
     fn get_default_parser() -> TestParser {
-        let mock_persistency = Box::leak(Box::new(MockPersistencyTrait::new()));
+        let mock_actions = MockActions::new();
         let mut mock_command = MockCommand::new();
         mock_command.expect_cmd_str().returning(|| "dummy".as_bytes());
-        Parser::new(&mut *mock_persistency, mock_command)
+        Parser::new(mock_actions, mock_command)
     }
 
     #[tokio::test]
     async fn additional_command() {
-        let mut mock_persistency = MockPersistencyTrait::new();
+        let mock_actions = MockActions::new();
         let mut mock_command = MockCommand::new();
         let my_command = "my_command".as_bytes();
         let ok_message: &[u8] = "my_command_good".as_bytes();
@@ -199,7 +213,7 @@ mod tests {
             TestParser::copy_to_beginning(answer, ok_message);
             Ok(ok_message.len())
         });
-        let mut parser = Parser::new(&mut mock_persistency, mock_command);
+        let mut parser = Parser::new(mock_actions, mock_command);
 
         let mut answer: [u8; 32] = ['2' as u8; 32];
         let length = parser.parse_message(my_command, &mut answer).await.unwrap();
@@ -217,24 +231,24 @@ mod tests {
 
     #[tokio::test]
     async fn store_command() {
-        let commands = vec![
-            (b"wifi_ssid".as_ref(),            b"myValue".as_ref(),       Key::WifiSsid),
-            (b"wifi_password".as_ref(),        b"12345".as_ref(),         Key::WifiPassword),
-            (b"mqtt_host_ip".as_ref(),         b"this.is.no.ip".as_ref(), Key::MqttHostIp),
-            (b"mqtt_broker_username".as_ref(), b"UOWKDNDLE".as_ref(),     Key::MqttBrokerUsername),
-            (b"mqtt_broker_password".as_ref(), b"__::)()()".as_ref(),     Key::MqttBrokerPassword),
+        const COMMANDS: &[(&[u8], &[u8], ValueId)] = &[
+            (b"wifi_ssid",            b"myValue",       ValueId::WifiSsid),
+            (b"wifi_password",        b"12345",         ValueId::WifiPassword),
+            (b"mqtt_host_ip",         b"this.is.no.ip", ValueId::MqttHostIp),
+            (b"mqtt_broker_username", b"UOWKDNDLE",     ValueId::MqttBrokerUsername),
+            (b"mqtt_broker_password", b"__::)()()",     ValueId::MqttBrokerPassword),
         ];
 
-        for (command, value, value_id) in commands {
-            let mut mock_persistency = MockPersistencyTrait::new();
-            mock_persistency.expect_store()
+        for (command, value, value_id) in COMMANDS {
+            let mut mock_actions = MockActions::new();
+            mock_actions.expect_store()
                 .times(1)
-                .withf(move |id, v| *id == value_id && v == value)
+                .withf(move |id, v| id == value_id && v == *value)
                 .returning(|_, _| ());
 
             let mut mock_command = MockCommand::new();
             mock_command.expect_cmd_str().returning(|| "dummy".as_bytes());
-            let mut parser = Parser::new(&mut mock_persistency, mock_command);
+            let mut parser = Parser::new(mock_actions, mock_command);
 
             let mut message = Vec::new();
             message.extend_from_slice(b"store ");
@@ -261,18 +275,18 @@ mod tests {
 
     #[tokio::test]
     async fn read_command() {
-        const COMMANDS: &[( &[u8], &[u8], Key )] = &[
-            (b"wifi_ssid",            b"myValue",       Key::WifiSsid),
-            (b"wifi_password",        b"12345",         Key::WifiPassword),
-            (b"mqtt_host_ip",         b"this.is.no.ip", Key::MqttHostIp),
-            (b"mqtt_broker_username", b"UOWKDNDLE",     Key::MqttBrokerUsername),
-            (b"mqtt_broker_password", b"__::)()()",     Key::MqttBrokerPassword),
+        const COMMANDS: &[(&[u8], &[u8], ValueId)] = &[
+            (b"wifi_ssid",            b"myValue",       ValueId::WifiSsid),
+            (b"wifi_password",        b"12345",         ValueId::WifiPassword),
+            (b"mqtt_host_ip",         b"this.is.no.ip", ValueId::MqttHostIp),
+            (b"mqtt_broker_username", b"UOWKDNDLE",     ValueId::MqttBrokerUsername),
+            (b"mqtt_broker_password", b"__::)()()",     ValueId::MqttBrokerPassword),
         ];
 
-        let mut mock_persistency = MockPersistencyTrait::new();
+        let mut mock_actions = MockActions::new();
         for (_, value, value_id) in COMMANDS {
 
-            mock_persistency.expect_read()
+            mock_actions.expect_get()
                 .times(1)
                 .withf(move |id, _| *id == *value_id)
                 .returning_st(move |_, answer| {
@@ -283,7 +297,7 @@ mod tests {
 
         let mut mock_command = MockCommand::new();
         mock_command.expect_cmd_str().returning(|| "dummy".as_bytes());
-        let mut parser = Parser::new(&mut mock_persistency, mock_command);
+        let mut parser = Parser::new(mock_actions, mock_command);
 
         for (command, value, _) in COMMANDS {
             let mut message = Vec::new();
@@ -309,14 +323,14 @@ mod tests {
 
     #[tokio::test]
     async fn nothing_to_parse() {
-        let mut mock_persistency = MockPersistencyTrait::new();
+        let mut mock_actions = MockActions::new();
 
-        mock_persistency.expect_read().never();
-        mock_persistency.expect_store().never();
+        mock_actions.expect_get().never();
+        mock_actions.expect_store().never();
 
         let mut mock_command = MockCommand::new();
         mock_command.expect_cmd_str().returning(|| "dummy".as_bytes());
-        let mut parser = Parser::new(&mut mock_persistency, mock_command);
+        let mut parser = Parser::new(mock_actions, mock_command);
 
         let mut answer = ['\0' as u8; 300];
         match parser.parse_message(b"no command", &mut answer).await {

@@ -3,7 +3,7 @@ use core::ops::Range;
 use lib::persistency::Persistency;
 pub use lib::persistency::Key;
 
-use embassy_rp::{bind_interrupts, Peri};
+use embassy_rp::Peri;
 use embassy_rp::flash::{self, Flash};
 use embassy_rp::peripherals::{FLASH, DMA_CH0};
 
@@ -13,14 +13,13 @@ const DEVICE_DATA_START: u32 = const_str::parse!(env!("DEVICE_DATA_RELATIVE_ORIG
 const DEVICE_DATA_LENGTH: u32 = const_str::parse!(env!("DEVICE_DATA_LENGTH"), u32);
 const ADDRESS_RANGE: Range<u32> = DEVICE_DATA_START .. (DEVICE_DATA_START + DEVICE_DATA_LENGTH);
 
-bind_interrupts!(struct DmaIrqs {
-    DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>;
-});
-
 pub type FlashPersistency = Persistency<Flash<'static, FLASH, flash::Async, FLASH_SIZE>>;
 
-pub fn init(flash: Peri<'static, FLASH>, dma_ch0: Peri<'static, DMA_CH0>) -> FlashPersistency {
-    let f = Flash::new(flash, dma_ch0, DmaIrqs);
+pub fn init<I>(flash: Peri<'static, FLASH>, dma_ch0: Peri<'static, DMA_CH0>, irq: I) -> FlashPersistency
+where
+    I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH0>> + 'static,
+{
+    let f = Flash::new(flash, dma_ch0, irq);
     Persistency::new(f, ADDRESS_RANGE)
 }
 
@@ -43,6 +42,7 @@ mod tests {
     use {
         defmt_rtt as _,
         defmt::assert_eq,
+        crate::modules::test_setup::DmaIrqs,
     };
 
     #[cfg(feature = "host-test")]
@@ -62,8 +62,9 @@ mod tests {
 
         #[cfg(feature = "target-test")]
         {
+            // embassy_rp::bind_interrupts!(struct DmaIrq { DMA_IRQ_0 => embassy_rp::dma::InterruptHandler<DMA_CH0>; });
             let peripherals = embassy_rp::init(Default::default());
-            super::init(peripherals.FLASH, peripherals.DMA_CH0)
+            super::init(peripherals.FLASH, peripherals.DMA_CH0, DmaIrqs)
         }
     }
 

@@ -18,10 +18,21 @@ use rust_mqtt::types::{MqttString, MqttBinary};
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
-use lib::persistency::{self, PersistencyTrait};
 use lib::misc::parse_ip;
 
 type MqttClientMutexed = Mutex<CriticalSectionRawMutex, rust_mqtt::client::Client<'static, embassy_net::tcp::TcpSocket<'static>, rust_mqtt::buffer::BumpBuffer<'static>, 8, 16, 16, 4>>;
+
+pub enum ValueId {
+    WifiSsid,
+    WifiPassword,
+    MqttHostIp,
+    MqttBrokerUsername,
+    MqttBrokerPassword,
+}
+
+pub trait Actions {
+    #[allow(async_fn_in_trait)]
+    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> usize;}
 
 pub struct WifiHw<'d> {
     pub pin_23: Peri<'d, PIN_23>,
@@ -32,21 +43,20 @@ pub struct WifiHw<'d> {
     pub dma_ch1: Peri<'d, DMA_CH1>,
 }
 
-pub struct MQTT<P, I> {
+pub struct MQTT<A, I> {
     client_mutexed: &'static MqttClientMutexed,
-    _phantom_data: PhantomData<(P, I)>,
+    _phantom_data: PhantomData<(A, I)>,
 }
 
-impl<P, I> MQTT<P, I>
+impl<A: Actions, I> MQTT<A, I>
 where
-    P: PersistencyTrait,
     I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH1>> + 'static,
 {
-    pub async fn new(persistency: &'static mut P, hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Self {
+    pub async fn new(mut actions: A, hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Self {
         let (driver, control) = Self::setup_cyw43(hw, spawner, irq).await;
         let network_stack = Self::setup_network(driver, spawner);
-        Self::connect_wifi(persistency, control, network_stack).await;
-        let client_mutexed = Self::connect_broker(persistency, network_stack, spawner).await;
+        Self::connect_wifi(&mut actions, control, network_stack).await;
+        let client_mutexed = Self::connect_broker(&mut actions, network_stack, spawner).await;
 
         Self {
             client_mutexed,
@@ -94,12 +104,12 @@ where
         network_stack
     }
 
-    async fn connect_wifi(persistency: &mut P, mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
+    async fn connect_wifi(actions: &mut A, mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
         let mut wifi_ssid = [0u8; 32];
         let mut wifi_password = [0u8; 32];
 
-        persistency.read(persistency::Key::WifiSsid, &mut wifi_ssid).await;
-        persistency.read(persistency::Key::WifiPassword, &mut wifi_password).await;
+        actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
+        actions.get(ValueId::WifiPassword, &mut wifi_password).await;
 
         loop {
             match control.join(str::from_utf8(&wifi_ssid).unwrap(), JoinOptions::new(&wifi_password)).await {
@@ -118,14 +128,14 @@ where
         info!("DHCP is now up!");
     }
 
-    async fn connect_broker(persistency: &mut P, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed {
+    async fn connect_broker(actions: &mut A, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed {
         let mut mqtt_host_ip = [0u8; 32];
         let mut mqtt_broker_username = [0u8; 32];
         let mut mqtt_broker_password = [0u8; 64];
 
-        persistency.read(persistency::Key::MqttHostIp, &mut mqtt_host_ip).await;
-        persistency.read(persistency::Key::MqttBrokerUsername, &mut mqtt_broker_username).await;
-        persistency.read(persistency::Key::MqttBrokerPassword, &mut mqtt_broker_password).await;
+        actions.get(ValueId::MqttHostIp, &mut mqtt_host_ip).await;
+        actions.get(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
+        actions.get(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
 
         let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip).unwrap();
         let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
@@ -217,5 +227,40 @@ async fn ping_task(client: &'static MqttClientMutexed) -> ! {
             Ok(()) => info!("ping sent"),
             Err(mqtt_error) => info!("ping NOT sent: {:?}", mqtt_error),
         }
+    }
+}
+
+
+#[cfg(feature = "target-test")]
+#[embedded_test::tests]
+mod tests {
+    use super::*;
+    use crate::modules::test_setup::{Pio1Irqs, DmaIrqs};
+
+    // Note: For the moment we do more of a dummy test. One day we might setup a runner that hosts a WiFi network with a MQTT broker.
+    #[test]
+    async fn test() {
+        let peripherals = embassy_rp::init(Default::default());
+
+        let pio = Pio::new(peripherals.PIO1, Pio1Irqs);
+
+        let hw = WifiHw {
+            pin_23: peripherals.PIN_23,
+            pin_24: peripherals.PIN_24,
+            pin_25: peripherals.PIN_25,
+            pin_29: peripherals.PIN_29,
+            pio_1: pio,
+            dma_ch1: peripherals.DMA_CH1,
+        };
+
+        let spawner = unsafe{ Spawner::for_current_executor() }.await;
+
+        struct MockActions;
+        impl Actions for MockActions {
+            async fn get(&mut self, _id: ValueId, _buffer: &mut [u8]) -> usize {0}
+        }
+
+        let (driver, _control) = MQTT::<MockActions, DmaIrqs>::setup_cyw43(hw, spawner, DmaIrqs).await;
+        let _network_stack = MQTT::<MockActions, DmaIrqs>::setup_network(driver, spawner);
     }
 }

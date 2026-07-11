@@ -108,11 +108,14 @@ where
         let mut wifi_ssid = [0u8; 32];
         let mut wifi_password = [0u8; 32];
 
-        actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
-        actions.get(ValueId::WifiPassword, &mut wifi_password).await;
+        let wifi_ssid_len = actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
+        let wifi_password_len = actions.get(ValueId::WifiPassword, &mut wifi_password).await;
 
         loop {
-            match control.join(str::from_utf8(&wifi_ssid).unwrap(), JoinOptions::new(&wifi_password)).await {
+            match control.join(
+                str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
+                JoinOptions::new(&wifi_password[..wifi_password_len])
+            ).await {
                 Ok(_) => {
                     info!("join successful");
                     break
@@ -133,11 +136,11 @@ where
         let mut mqtt_broker_username = [0u8; 32];
         let mut mqtt_broker_password = [0u8; 64];
 
-        actions.get(ValueId::MqttHostIp, &mut mqtt_host_ip).await;
-        actions.get(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
-        actions.get(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
+        let mqtt_host_ip_len = actions.get(ValueId::MqttHostIp, &mut mqtt_host_ip).await;
+        let mqtt_broker_username_len = actions.get(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
+        let mqtt_broker_password_len = actions.get(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
 
-        let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip).unwrap();
+        let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip[..mqtt_host_ip_len]).unwrap();
         let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
         let remote_endpoint = (address, 1883);
 
@@ -159,8 +162,8 @@ where
             // TODO: hier gibt es eine keep-alive funktion. vielleicht bräuchte man dann das pinging nicht mehr?
             .clean_start()
             .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
-            .user_name(unwrap!(MqttString::from_str(str::from_utf8(&mqtt_broker_username).unwrap())))
-            .password(unwrap!(MqttBinary::from_slice(&mqtt_broker_password)));
+            .user_name(unwrap!(MqttString::from_str(str::from_utf8(&mqtt_broker_username[..mqtt_broker_username_len]).unwrap())))
+            .password(unwrap!(MqttBinary::from_slice(&mqtt_broker_password[..mqtt_broker_password_len])));
 
 
         static MQTT_BUMP_MEM: StaticCell<[u8; 2048]> = StaticCell::new();

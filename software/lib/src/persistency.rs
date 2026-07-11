@@ -6,7 +6,7 @@ use embedded_storage_async::nor_flash::NorFlash;
 use sequential_storage::cache::NoCache;
 use sequential_storage::map::{MapStorage, MapConfig};
 
-const DATA_BUFFER_SIZE: usize = 32;
+const DATA_BUFFER_SIZE: usize = 70;
 
 #[derive(Clone, Copy, PartialEq)]
 #[repr(u8)]

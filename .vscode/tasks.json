@@ -4,7 +4,8 @@
         {
             "label": "firmware_build",
             "type": "shell",
-            "command": "./run.py --build",
+            // Directly flash here. See launch.json for more information.
+            "command": "./run.py software --build && cd software/targets/rp2040 && cargo flash --chip rp2040",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -14,7 +15,7 @@
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
-            }
+            },
         }
     ]
 }

@@ -22,6 +22,7 @@ rustflags = [
 target = "thumbv6m-none-eabi"
 
 [env]
+DEFMT_LOG = "info"
 # Prevent showing warning that can be ignored: "Failed to switch to DP Multidrop ...".
 # See e.g. https://github.com/probe-rs/probe-rs/issues/3316
 RUST_LOG = "probe_rs::architecture::arm::communication_interface=error"

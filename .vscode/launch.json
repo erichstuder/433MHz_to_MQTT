@@ -6,17 +6,20 @@
             "type": "probe-rs-debug",
             "request": "launch",
             "preLaunchTask": "firmware_build",
-            "cwd": "${workspaceFolder}/firmware",
+            "cwd": "${workspaceFolder}/software/targets/rp2040",
             "connectUnderReset": false,
             "chip": "RP2040",
             "flashingConfig": {
-                "flashingEnabled": true,
-                "haltAfterReset": true,
+                // Due to a problem with probe-rs we flash in the preLaunchTask.
+                // Somehow breakpoints are ignored if we flash here.
+                // see e.g. https://github.com/probe-rs/probe-rs/issues/3991
+                "flashingEnabled": false,
+                "haltAfterReset": true
             },
             "coreConfigs": [
                 {
                     "coreIndex": 0,
-                    "programBinary": "build/thumbv6m-none-eabi/debug/firmware",
+                    "programBinary": "target/thumbv6m-none-eabi/debug/firmware",
                     "rttEnabled": true,
                     "rttChannelFormats": [
                         {
@@ -32,13 +35,13 @@
             "name": "probe-rs attach",
             "type": "probe-rs-debug",
             "request": "attach",
-            "cwd": "${workspaceFolder}/firmware",
+            "cwd": "${workspaceFolder}/software/targets/rp2040",
             "connectUnderReset": false,
             "chip": "RP2040",
             "coreConfigs": [
                 {
                     "coreIndex": 0,
-                    "programBinary": "build/thumbv6m-none-eabi/debug/firmware",
+                    "programBinary": "target/thumbv6m-none-eabi/debug/firmware",
                     "rttEnabled": true,
                     "rttChannelFormats": [
                         {
@@ -48,26 +51,6 @@
                         }
                     ]
                 }
-            ],
-        },
-        {
-            "name": "cortex-debug",
-            "type": "cortex-debug",
-            "interface": "swd",
-            "serialNumber": "801043972",
-            "request": "launch",
-            "preLaunchTask": "firmware_build",
-            "cwd": "${workspaceFolder}/software/firmware",
-            "executable": "tmp/thumbv6m-none-eabi/debug/firmware",
-            "servertype": "jlink",
-            "device": "RP2040_M0_0",
-            "serverpath": "/opt/SEGGER/JLink/JLinkGDBServer",
-            "gdbPath": "gdb-multiarch",
-            "svdFile": "/home/erich/Downloads/rp2040.svd",
-            "armToolchainPath": "/home/erich/Downloads/arm-gnu-toolchain-13.2.rel1-x86_64-arm-none-eabi/arm-gnu-toolchain-13.2.Rel1-x86_64-arm-none-eabi/bin",
-            "postRestartCommands": [
-                "break main",
-                "continue"
             ],
         }
     ]

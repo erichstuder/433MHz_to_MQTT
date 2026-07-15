@@ -108,10 +108,11 @@ where
         let mut wifi_ssid = [0u8; 32];
         let mut wifi_password = [0u8; 32];
 
-        let wifi_ssid_len = actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
-        let wifi_password_len = actions.get(ValueId::WifiPassword, &mut wifi_password).await;
-
         loop {
+            // Read wifi ssid and password again and again.
+            // That way if it was wrong and gets updated it immediately connects.
+            let wifi_ssid_len = actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
+            let wifi_password_len = actions.get(ValueId::WifiPassword, &mut wifi_password).await;
             match control.join(
                 str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
                 JoinOptions::new(&wifi_password[..wifi_password_len])
@@ -120,7 +121,11 @@ where
                     info!("join successful");
                     break
                 },
-                Err(err) => info!("join failed with status={:?}", err),
+                Err(err) => {
+                    // Leave immediately to prevent panic.
+                    control.leave().await;
+                    info!("join failed with status={:?}", err);
+                },
             }
         }
 

@@ -192,7 +192,7 @@ async fn main(spawner: Spawner) {
     };
 
     let my_mqtt_actions = MqttActions::new(persistency);
-    let mqtt = MQTT::new(my_mqtt_actions, wifi_hw, spawner, DmaIrq);
+    let mqtt = MQTT::new(my_mqtt_actions, wifi_hw, spawner, DmaIrq).await;
 }
 
 #[task]

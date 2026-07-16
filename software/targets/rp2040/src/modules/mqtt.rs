@@ -109,8 +109,6 @@ where
         let mut wifi_password = [0u8; 32];
 
         loop {
-            // Read wifi ssid and password again and again.
-            // That way if it was wrong and gets updated it immediately connects.
             let wifi_ssid_len = actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
             let wifi_password_len = actions.get(ValueId::WifiPassword, &mut wifi_password).await;
             match control.join(
@@ -138,38 +136,21 @@ where
 
     async fn connect_broker(actions: &mut A, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed {
         let mut mqtt_host_ip = [0u8; 32];
-        let mut mqtt_broker_username = [0u8; 32];
-        let mut mqtt_broker_password = [0u8; 64];
-
         let mqtt_host_ip_len = actions.get(ValueId::MqttHostIp, &mut mqtt_host_ip).await;
-        let mqtt_broker_username_len = actions.get(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
-        let mqtt_broker_password_len = actions.get(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
-
         let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip[..mqtt_host_ip_len]).unwrap();
         let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
         let remote_endpoint = (address, 1883);
 
-        //TODO: The following buffer sizes have mostly been taken from examples. There might be better values.
-        static RX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
-        let rx_buffer = RX_BUFFER.init([0; 4096]);
-        static TX_BUFFER: StaticCell<[u8; 4096]> = StaticCell::new();
-        let tx_buffer = TX_BUFFER.init([0; 4096]);
-        let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
-        socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
-
-        let connection = socket.connect(remote_endpoint).await;
-        if let Err(e) = connection {
-            error!("connect error: {:?}", e);
-        }
-        info!("connected to broker!");
-
+        let mut mqtt_broker_username = [0u8; 32];
+        let mut mqtt_broker_password = [0u8; 64];
+        let mqtt_broker_username_len = actions.get(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
+        let mqtt_broker_password_len = actions.get(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
         let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
-            // TODO: hier gibt es eine keep-alive funktion. vielleicht bräuchte man dann das pinging nicht mehr?
             .clean_start()
             .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
+            .keep_alive(rust_mqtt::config::KeepAlive::Infinite)
             .user_name(unwrap!(MqttString::from_str(str::from_utf8(&mqtt_broker_username[..mqtt_broker_username_len]).unwrap())))
             .password(unwrap!(MqttBinary::from_slice(&mqtt_broker_password[..mqtt_broker_password_len])));
-
 
         static MQTT_BUMP_MEM: StaticCell<[u8; 2048]> = StaticCell::new();
         static MQTT_BUMP: StaticCell<rust_mqtt::buffer::BumpBuffer<'static>> = StaticCell::new();
@@ -181,7 +162,22 @@ where
         static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
         let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
 
-        // loop { Note: At the moment we only try once to connect, due to a moved socket.
+        loop {
+            const BUFFER_SIZE: usize = 2048;
+            static RX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
+            static TX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
+            let rx_buffer = RX_BUFFER.init([0; BUFFER_SIZE]);
+            let tx_buffer = TX_BUFFER.init([0; BUFFER_SIZE]);
+
+            let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
+            socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
+
+            let connection = socket.connect(remote_endpoint).await;
+            if let Err(e) = connection {
+                error!("connect error: {:?}", e);
+            }
+            info!("connected to broker!");
+
             let mut client = client_mutexed.lock().await;
             match client.connect(
                 socket,
@@ -190,16 +186,13 @@ where
             ).await {
                 Ok(info) => {
                     info!("Connected to broker with: {:?}", info);
-                    // break;
+                    break;
                 }
                 Err(e) =>  {
                     error!("Other MQTT Error: {:?}", e);
                 },
             }
-        //     Timer::after(Duration::from_millis(2000)).await;
-        // }
-
-        spawner.spawn(ping_task(client_mutexed).unwrap());
+        }
 
         client_mutexed
     }
@@ -222,20 +215,6 @@ async fn cyw43_task(runner: cyw43::Runner<'static, cyw43::SpiBus<gpio::Output<'s
 #[task]
 async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'static>>) -> ! {
     runner.run().await
-}
-
-#[task]
-async fn ping_task(client: &'static MqttClientMutexed) -> ! {
-    loop {
-        Timer::after(Duration::from_secs(30)).await;
-
-        let mut client = client.lock().await;
-        let result = client.ping().await;
-        match result {
-            Ok(()) => info!("ping sent"),
-            Err(mqtt_error) => info!("ping NOT sent: {:?}", mqtt_error),
-        }
-    }
 }
 
 

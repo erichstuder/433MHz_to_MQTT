@@ -2,10 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "firmware_build",
+            "label": "firmware build",
             "type": "shell",
-            // Directly flash here. See launch.json for more information.
-            "command": "./run.py software --build && cd software/targets/rp2040 && cargo flash --chip rp2040",
+            "command": "./run.py software --build",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -16,6 +15,36 @@
             "options": {
                 "cwd": "${workspaceFolder}"
             },
+        },
+        {
+            "label": "openocd defmt",
+            "type": "shell",
+            "command": "echo \"[defmt] waiting for RTT...\"; while true; do nc 127.0.0.1 8765 2>/dev/null | defmt-print -e ${workspaceFolder}/software/targets/rp2040/target/thumbv6m-none-eabi/debug/firmware; sleep 0.2; done",
+            "isBackground": true,
+            "problemMatcher": {
+                "pattern": { "regexp": "^$" },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^Waiting for OpenOCD RTT server...$",
+                    "endsPattern": "^.*$"
+                }
+            },
+            "presentation": {
+                "echo": false,
+                "reveal": "always",
+                "focus": true,
+                "panel": "dedicated",
+                "group": "defmt"
+            }
+        },
+        {
+            "label": "openocd pre launch",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "firmware build",
+                "openocd defmt"
+            ],
+            "problemMatcher": []
         }
     ]
 }

@@ -41,7 +41,9 @@
                 "fill-labs.dependi",
                 "tamasfe.even-better-toml",
                 "probe-rs.probe-rs-debugger",
-                "vadimcn.vscode-lldb"
+                "vadimcn.vscode-lldb",
+                "mcu-debug.debug-tracker-vscode",
+                "marus25.cortex-debug"
             ]
         }
     }

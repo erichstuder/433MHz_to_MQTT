@@ -1,3 +1,7 @@
+// probe-rs has sometimes ignores breakpoints. (Only on rp2040?)
+// openocd seems to work better and defmt works aswell.
+// The future will tell which one is better. Until then, both are provided as options.
+
 {
     "version": "0.2.0",
     "configurations": [
@@ -5,16 +9,12 @@
             "name": "probe-rs launch",
             "type": "probe-rs-debug",
             "request": "launch",
-            "preLaunchTask": "firmware_build",
+            "preLaunchTask": "firmware build",
             "cwd": "${workspaceFolder}/software/targets/rp2040",
-            "connectUnderReset": false,
             "chip": "RP2040",
             "flashingConfig": {
-                // Due to a problem with probe-rs we flash in the preLaunchTask.
-                // Somehow breakpoints are ignored if we flash here.
-                // see e.g. https://github.com/probe-rs/probe-rs/issues/3991
-                "flashingEnabled": false,
-                "haltAfterReset": true
+                "flashingEnabled": true,
+                "haltAfterReset": false
             },
             "coreConfigs": [
                 {
@@ -51,6 +51,25 @@
                         }
                     ]
                 }
+            ],
+        },
+        {
+            "name": "openocd launch",
+            "type": "cortex-debug",
+            "request": "launch",
+            "preLaunchTask": "openocd pre launch",
+            "servertype": "openocd",
+            "cwd": "${workspaceFolder}/software/targets/rp2040",
+            "executable": "target/thumbv6m-none-eabi/debug/firmware",
+            "device": "RP2040_M0",
+            "gdbPath": "gdb-multiarch",
+            "configFiles": ["openocd.cfg"],
+            // "runToEntryPoint": "main",
+            "showDevDebugOutput": "raw",
+            "postLaunchCommands": [
+                "monitor rtt setup 0x20000000 0x40000 \"SEGGER RTT\"",
+                "monitor rtt start",
+                "monitor rtt server start 8765 0"
             ],
         }
     ]

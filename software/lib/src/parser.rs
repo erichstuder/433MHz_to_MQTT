@@ -12,9 +12,9 @@ pub enum ValueId {
 #[cfg_attr(test, mockall::automock)]
 pub trait Actions {
     #[allow(async_fn_in_trait)]
-    async fn store(&mut self, id: ValueId, value: &[u8]);
+    async fn store(&mut self, id: ValueId, value: &[u8]) -> Result<(), &'static str>;
     #[allow(async_fn_in_trait)]
-    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> usize;
+    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> Result<usize, &'static str>;
 }
 
 #[cfg_attr(test, mockall::automock)]
@@ -122,28 +122,23 @@ impl <A: Actions, C: Command> Parser<A, C> {
 
         if parameters.starts_with(WIFI_SSID) {
             let value = &parameters[WIFI_SSID.len()..];
-            self.actions.store(ValueId::WifiSsid, value).await;
-            Ok(())
+            self.actions.store(ValueId::WifiSsid, value).await
         }
         else if parameters.starts_with(WIFI_PASSWORD) {
             let value = &parameters[WIFI_PASSWORD.len()..];
-            self.actions.store(ValueId::WifiPassword, value).await;
-            Ok(())
+            self.actions.store(ValueId::WifiPassword, value).await
         }
         else if parameters.starts_with(MQTT_HOST_IP) {
             let value = &parameters[MQTT_HOST_IP.len()..];
-            self.actions.store(ValueId::MqttHostIp, value).await;
-            Ok(())
+            self.actions.store(ValueId::MqttHostIp, value).await
         }
         else if parameters.starts_with(MQTT_BROKER_USERNAME) {
             let value = &parameters[MQTT_BROKER_USERNAME.len()..];
-            self.actions.store(ValueId::MqttBrokerUsername, value).await;
-            Ok(())
+            self.actions.store(ValueId::MqttBrokerUsername, value).await
         }
         else if parameters.starts_with(MQTT_BROKER_PASSWORD) {
             let value = &parameters[MQTT_BROKER_PASSWORD.len()..];
-            self.actions.store(ValueId::MqttBrokerPassword, value).await;
-            Ok(())
+            self.actions.store(ValueId::MqttBrokerPassword, value).await
         }
         else {
             Err("unknown store parameter, type 'read help' for help ('store help' not yet available)")
@@ -152,19 +147,19 @@ impl <A: Actions, C: Command> Parser<A, C> {
 
     async fn parse_read_command(&mut self, parameters: &[u8], answer: &mut [u8]) -> Result<usize, &'static str>{
         if parameters.starts_with(b"wifi_ssid") {
-            Ok(self.actions.get(ValueId::WifiSsid, answer).await)
+            self.actions.get(ValueId::WifiSsid, answer).await
         }
         else if parameters.starts_with(b"wifi_password") {
-            Ok(self.actions.get(ValueId::WifiPassword, answer).await)
+            self.actions.get(ValueId::WifiPassword, answer).await
         }
         else if parameters.starts_with(b"mqtt_host_ip") {
-            Ok(self.actions.get(ValueId::MqttHostIp, answer).await)
+            self.actions.get(ValueId::MqttHostIp, answer).await
         }
         else if parameters.starts_with(b"mqtt_broker_username") {
-            Ok(self.actions.get(ValueId::MqttBrokerUsername, answer).await)
+            self.actions.get(ValueId::MqttBrokerUsername, answer).await
         }
         else if parameters.starts_with(b"mqtt_broker_password") {
-            Ok(self.actions.get(ValueId::MqttBrokerPassword, answer).await)
+            self.actions.get(ValueId::MqttBrokerPassword, answer).await
         }
         else if parameters.starts_with(b"help") {
             Ok(Self::copy_to_beginning(answer, concat!(
@@ -244,7 +239,7 @@ mod tests {
             mock_actions.expect_store()
                 .times(1)
                 .withf(move |id, v| id == value_id && v == *value)
-                .returning(|_, _| ());
+                .returning(|_, _| Ok(()));
 
             let mut mock_command = MockCommand::new();
             mock_command.expect_cmd_str().returning(|| "dummy".as_bytes());
@@ -291,7 +286,7 @@ mod tests {
                 .withf(move |id, _| *id == *value_id)
                 .returning_st(move |_, answer| {
                     answer[..value.len()].copy_from_slice(value);
-                    value.len()
+                    Ok(value.len())
                 });
         }
 

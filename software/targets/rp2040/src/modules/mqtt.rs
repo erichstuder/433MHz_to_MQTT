@@ -2,10 +2,13 @@
 
 use core::str;
 use core::marker::PhantomData;
-use defmt::{info, error, unwrap};
+use defmt::{Format, info, error, unwrap};
 use embassy_executor::{task, Spawner};
 use embassy_rp::{Peri, gpio, dma};
-use embassy_time::{Duration, Timer};
+
+// use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
+
 use embassy_net;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::pio::Pio;
@@ -20,8 +23,10 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
 use lib::misc::parse_ip;
 
-type MqttClientMutexed = Mutex<CriticalSectionRawMutex, rust_mqtt::client::Client<'static, embassy_net::tcp::TcpSocket<'static>, rust_mqtt::buffer::BumpBuffer<'static>, 8, 16, 16, 4>>;
+type MqttClient = rust_mqtt::client::Client<'static, embassy_net::tcp::TcpSocket<'static>, rust_mqtt::buffer::BumpBuffer<'static>, 8, 16, 16, 4>;
+type MqttClientMutexed = Mutex<CriticalSectionRawMutex, MqttClient>;
 
+#[derive(Copy, Clone, Format)]
 pub enum ValueId {
     WifiSsid,
     WifiPassword,
@@ -30,9 +35,10 @@ pub enum ValueId {
     MqttBrokerPassword,
 }
 
+
 pub trait Actions {
     #[allow(async_fn_in_trait)]
-    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> usize;}
+    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> Option<usize>;}
 
 pub struct WifiHw<'d> {
     pub pin_23: Peri<'d, PIN_23>,
@@ -109,8 +115,8 @@ where
         let mut wifi_password = [0u8; 32];
 
         loop {
-            let wifi_ssid_len = actions.get(ValueId::WifiSsid, &mut wifi_ssid).await;
-            let wifi_password_len = actions.get(ValueId::WifiPassword, &mut wifi_password).await;
+            let wifi_ssid_len = Self::get_valid_value(actions, ValueId::WifiSsid, &mut wifi_ssid).await;
+            let wifi_password_len = Self::get_valid_value(actions, ValueId::WifiPassword, &mut wifi_password).await;
             match control.join(
                 str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
                 JoinOptions::new(&wifi_password[..wifi_password_len])
@@ -136,15 +142,15 @@ where
 
     async fn connect_broker(actions: &mut A, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed {
         let mut mqtt_host_ip = [0u8; 32];
-        let mqtt_host_ip_len = actions.get(ValueId::MqttHostIp, &mut mqtt_host_ip).await;
+        let mut mqtt_broker_username = [0u8; 32];
+        let mut mqtt_broker_password = [0u8; 64];
+
+        let mqtt_host_ip_len = Self::get_valid_value(actions, ValueId::MqttHostIp, &mut mqtt_host_ip).await;
         let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip[..mqtt_host_ip_len]).unwrap();
         let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
         let remote_endpoint = (address, 1883);
-
-        let mut mqtt_broker_username = [0u8; 32];
-        let mut mqtt_broker_password = [0u8; 64];
-        let mqtt_broker_username_len = actions.get(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
-        let mqtt_broker_password_len = actions.get(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
+        let mqtt_broker_username_len = Self::get_valid_value(actions, ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
+        let mqtt_broker_password_len = Self::get_valid_value(actions, ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
         let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
             .clean_start()
             .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
@@ -154,47 +160,54 @@ where
 
         static MQTT_BUMP_MEM: StaticCell<[u8; 2048]> = StaticCell::new();
         static MQTT_BUMP: StaticCell<rust_mqtt::buffer::BumpBuffer<'static>> = StaticCell::new();
-
         let bump_mem = MQTT_BUMP_MEM.init([0; 2048]);
         let bump = MQTT_BUMP.init(rust_mqtt::buffer::BumpBuffer::new(bump_mem));
-        let client = rust_mqtt::client::Client::new(bump);
+        let mut client = rust_mqtt::client::Client::new(bump);
 
-        static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
-        let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
+        const BUFFER_SIZE: usize = 2048;
+        static RX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
+        static TX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
+        let rx_buffer = RX_BUFFER.init([0; BUFFER_SIZE]);
+        let tx_buffer = TX_BUFFER.init([0; BUFFER_SIZE]);
+        let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
+        socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
 
         loop {
-            const BUFFER_SIZE: usize = 2048;
-            static RX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
-            static TX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
-            let rx_buffer = RX_BUFFER.init([0; BUFFER_SIZE]);
-            let tx_buffer = TX_BUFFER.init([0; BUFFER_SIZE]);
-
-            let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
-            socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
-
-            let connection = socket.connect(remote_endpoint).await;
-            if let Err(e) = connection {
-                error!("connect error: {:?}", e);
+            if let Err(e) = socket.connect(remote_endpoint).await {
+                info!("connect error: {:?}", e);
+                Timer::after_millis(1000).await;
+                continue
             }
-            info!("connected to broker!");
+            break
+        };
 
-            let mut client = client_mutexed.lock().await;
-            match client.connect(
-                socket,
-                &mqtt_connect_options,
-                Some(MqttString::from_str("433MHz_to_MQTT").unwrap())
-            ).await {
-                Ok(info) => {
-                    info!("Connected to broker with: {:?}", info);
-                    break;
-                }
-                Err(e) =>  {
-                    error!("Other MQTT Error: {:?}", e);
-                },
+        match client.connect(socket, &mqtt_connect_options, Some(MqttString::from_str("433MHz_to_MQTT").unwrap())).await {
+            Ok(info) => {
+                info!("Connected to broker with: {:?}", info);
+            }
+            Err(e) =>  {
+                error!("Other MQTT Error: {:?}", e);
+                client.abort().await;
+                // Timer::after_millis(1000).await;
             }
         }
 
-        client_mutexed
+        static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
+        let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
+        return client_mutexed
+    }
+
+    // As it often makes no sense to advance if there is no valid value, we just loop until we get a valid value.
+    // This helps on first startup when no values might be stored yet.
+    // As soon as a value is available we can advance.
+    async fn get_valid_value(actions: &mut A, id: ValueId, buffer: &mut [u8]) -> usize {
+        loop {
+            if let Some(result) = actions.get(id, buffer).await {
+                return result
+            }
+            info!("Couldn't get {:?}", id);
+            Timer::after_millis(3000).await;
+        }
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {

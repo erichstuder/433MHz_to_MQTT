@@ -107,16 +107,19 @@ impl<'d> ParserActions<'d> {
 }
 
 impl<'d> parser::Actions for ParserActions<'d> {
-    async fn store(&mut self, id: parser::ValueId, value: &[u8]) {
+    async fn store(&mut self, id: parser::ValueId, value: &[u8]) -> Result<(), &'static str> {
         let mut p = self.persistency.lock().await;
         let key = Self::id_to_key(id);
-        p.store(key, value).await
+        p.store(key, value).await.map_err(|_| "internal storing error")
     }
 
-    async fn get(&mut self, id: parser::ValueId, buffer: &mut [u8]) -> usize  {
+    async fn get(&mut self, id: parser::ValueId, buffer: &mut [u8]) -> Result<usize, &'static str>  {
         let mut p = self.persistency.lock().await;
         let key = Self::id_to_key(id);
+
         p.read(key, buffer).await
+            .map_err(|_| "internal reading error")?
+            .ok_or("value not found")
     }
 }
 
@@ -134,7 +137,7 @@ impl<'d> MqttActions<'d> {
 }
 
 impl<'d> mqtt::Actions for MqttActions<'d> {
-    async fn get(&mut self, id: mqtt::ValueId, buffer: &mut [u8]) -> usize  {
+    async fn get(&mut self, id: mqtt::ValueId, buffer: &mut [u8]) -> Option<usize> {
         let key = match id {
             mqtt::ValueId::WifiSsid => persistency::Key::WifiSsid,
             mqtt::ValueId::WifiPassword => persistency::Key::WifiPassword,
@@ -143,7 +146,13 @@ impl<'d> mqtt::Actions for MqttActions<'d> {
             mqtt::ValueId::MqttBrokerPassword => persistency::Key::MqttBrokerPassword,
         };
         let mut p = self.persistency.lock().await;
-        p.read(key, buffer).await
+        let result = p.read(key, buffer).await;
+        if let Ok(value) = result {
+            return value;
+        }
+        else {
+            return None;
+        };
     }
 }
 
@@ -192,7 +201,7 @@ async fn main(spawner: Spawner) {
     };
 
     let my_mqtt_actions = MqttActions::new(persistency);
-    let mqtt = MQTT::new(my_mqtt_actions, wifi_hw, spawner, DmaIrq).await;
+    let _mqtt = MQTT::new(my_mqtt_actions, wifi_hw, spawner, DmaIrq).await;
 }
 
 #[task]

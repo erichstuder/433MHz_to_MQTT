@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use lib::persistency::Persistency;
+use lib::persistency::{self, Persistency};
 pub use lib::persistency::Key;
 
 use embassy_rp::Peri;
@@ -13,14 +13,16 @@ const DEVICE_DATA_START: u32 = const_str::parse!(env!("DEVICE_DATA_RELATIVE_ORIG
 const DEVICE_DATA_LENGTH: u32 = const_str::parse!(env!("DEVICE_DATA_LENGTH"), u32);
 const ADDRESS_RANGE: Range<u32> = DEVICE_DATA_START .. (DEVICE_DATA_START + DEVICE_DATA_LENGTH);
 
-pub type FlashPersistency = Persistency<Flash<'static, FLASH, flash::Async, FLASH_SIZE>>;
+type MyFlash = Flash<'static, FLASH, flash::Async, FLASH_SIZE>;
+pub type FlashPersistency = Persistency<MyFlash>;
+pub type Error = persistency::Error<MyFlash>;
 
 pub fn init<I>(flash: Peri<'static, FLASH>, dma_ch0: Peri<'static, DMA_CH0>, irq: I) -> FlashPersistency
 where
     I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH0>> + 'static,
 {
-    let f = Flash::new(flash, dma_ch0, irq);
-    Persistency::new(f, ADDRESS_RANGE)
+    let storage = Flash::new(flash, dma_ch0, irq);
+    Persistency::new(storage, ADDRESS_RANGE)
 }
 
 #[cfg(test)]
@@ -30,7 +32,7 @@ mod tests {
     // Unfortunately embedded-test ignores the panic message when using #[should_panic], so we cannot assert on the message.
 
     use super::*;
-    use lib::persistency::PersistencyTrait;
+    use lib::persistency::{PersistencyTrait, SerializationError};
 
     #[cfg(feature = "host-test")]
     use {
@@ -45,10 +47,14 @@ mod tests {
         crate::modules::test_setup::DmaIrqs,
     };
 
-    #[cfg(feature = "host-test")]
     // Mock persistency for host-test.
-    type FlashPersistency = Persistency<NorMemoryAsync<NorMemoryInram<4, 4, 256>>>;
-    // Note: For target-test the existing definition of FlashPersistency is used.
+    // Note: This will overwrite existing definitions. For target-test the existing definitions are used.
+    #[cfg(feature = "host-test")]
+    type HostTestFlash = NorMemoryAsync<NorMemoryInram<4, 4, 256>>;
+    #[cfg(feature = "host-test")]
+    type FlashPersistency = Persistency<HostTestFlash>;
+    #[cfg(feature = "host-test")]
+    type Error = persistency::Error<HostTestFlash>;
 
     #[init]
     async fn init() -> FlashPersistency {
@@ -91,8 +97,8 @@ mod tests {
     async fn store_and_read(mut flash_persistency: FlashPersistency) {
         async fn store_read_and_assert(flash_persistency: &mut FlashPersistency, key: Key, value: &[u8]) {
             let mut read_value = [0; 32];
-            flash_persistency.store(key, value).await;
-            let read_len = flash_persistency.read(key, &mut read_value).await;
+            let _ = flash_persistency.store(key, value).await;
+            let read_len = flash_persistency.read(key, &mut read_value).await.unwrap().unwrap();
             assert_eq!(&read_value[..read_len], value);
         }
 
@@ -102,10 +108,10 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     async fn store_too_long_value(mut flash_persistency: FlashPersistency) {
         let key = Key::MqttBrokerPassword;
         let value = [0; 71]; // This is too long for the buffer size of 70.
-        flash_persistency.store(key, &value).await;
+        let result = flash_persistency.store(key, &value).await;
+        assert_eq!(result.unwrap_err(), Error::SerializationError(SerializationError::BufferTooSmall));
     }
 }

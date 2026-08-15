@@ -13,12 +13,12 @@ use embassy_net;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::pio::Pio;
 use embassy_rp::peripherals::{DMA_CH1, PIO1, PIN_23, PIN_24, PIN_25, PIN_29};
-use embassy_rp::bind_interrupts;
 use static_cell::StaticCell;
 use cyw43_pio::DEFAULT_CLOCK_DIVIDER;
 use cyw43::{aligned_bytes, JoinOptions};
 use core::net::Ipv4Addr;
 use rust_mqtt::types::{MqttString, MqttBinary};
+use embassy_sync::channel::Channel;
 use embassy_sync::mutex::Mutex;
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 
@@ -50,8 +50,16 @@ pub struct WifiHw<'d> {
     pub dma_ch1: Peri<'d, DMA_CH1>,
 }
 
+#[derive(Copy, Clone)]
+struct MqttPayload {
+    payload: [u8; 128],
+    len: usize,
+}
+
+type MessageChannel = Channel<CriticalSectionRawMutex, MqttPayload, 4>;
+
 pub struct MQTT<A, I> {
-    // client_mutexed: &'static MqttClientMutexed<'static>,
+    message_channel: &'static MessageChannel,
     _phantom_data: PhantomData<(A, I)>,
 }
 
@@ -75,10 +83,11 @@ where
             .user_name(unwrap!(MqttString::from_str(str::from_utf8(b"broker_user_name").unwrap())))
             .password(unwrap!(MqttBinary::from_slice(b"broker_password")));
 
-        spawner.spawn(run(spawner, remote_endpoint, mqtt_connect_options, driver, control).unwrap());
+        static MESSAGE_CHANNEL: MessageChannel = Channel::new();
+        spawner.spawn(run(spawner, remote_endpoint, mqtt_connect_options, driver, control, &MESSAGE_CHANNEL).unwrap());
 
         Self {
-            // client_mutexed,
+            message_channel: &MESSAGE_CHANNEL,
             _phantom_data: PhantomData,
         }
     }
@@ -235,12 +244,12 @@ where
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {
-        // let mut client = self.client_mutexed.lock().await;
-        // let topic = unwrap!(rust_mqtt::types::TopicName::new(unwrap!(MqttString::from_str("433MHz_to_MQTT_button"))));
-        // unwrap!(client.publish(
-        //     &rust_mqtt::client::options::PublicationOptions::new(rust_mqtt::client::options::TopicReference::Name(topic.as_borrowed())).exactly_once(),
-        //     payload.into()
-        // ).await);
+        let mut msg = MqttPayload {
+            payload: [0; 128],
+            len: payload.len().min(128),
+        };
+        msg.payload[..msg.len].copy_from_slice(&payload[..msg.len]);
+        self.message_channel.send(msg).await;
     }
 }
 
@@ -267,7 +276,8 @@ async fn run(
     // mut hw: WifiHw<'static>,
     // irq: DmaIrq,
     driver: cyw43::NetDriver<'static>,
-    mut control: cyw43::Control<'static>
+    mut control: cyw43::Control<'static>,
+    message_channel: &'static MessageChannel,
 ) -> ! {
     // let firmware = aligned_bytes!("../../../../cyw43-firmware/43439A0.bin");
     // let clm = aligned_bytes!("../../../../cyw43-firmware/43439A0_clm.bin");
@@ -352,31 +362,6 @@ async fn run(
         let mut bump = rust_mqtt::buffer::BumpBuffer::new(&mut bump_mem);
         let mut client = MqttClient::new(&mut bump);
 
-    // let mut mqtt_host_ip = [0u8; 32];
-    // let mut mqtt_broker_username = [0u8; 32];
-    // let mut mqtt_broker_password = [0u8; 64];
-
-    // let mqtt_host_ip_len = MQTT::get_valid_value(actions, ValueId::MqttHostIp, &mut mqtt_host_ip).await;
-    // let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip[..mqtt_host_ip_len]).unwrap();
-    // let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
-    // let remote_endpoint = (address, 1883);
-    // let mqtt_broker_username_len = MQTT::get_valid_value(actions, ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
-    // let mqtt_broker_password_len = MQTT::get_valid_value(actions, ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
-    // let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
-    //     .clean_start()
-    //     .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
-    //     .keep_alive(rust_mqtt::config::KeepAlive::Infinite)
-    //     .user_name(unwrap!(MqttString::from_str(str::from_utf8(&mqtt_broker_username[..mqtt_broker_username_len]).unwrap())))
-    //     .password(unwrap!(MqttBinary::from_slice(&mqtt_broker_password[..mqtt_broker_password_len])));
-
-    // static MQTT_BUMP_MEM: StaticCell<[u8; 2048]> = StaticCell::new();
-    // static MQTT_BUMP: StaticCell<rust_mqtt::buffer::BumpBuffer<'static>> = StaticCell::new();
-    // let bump_mem = MQTT_BUMP_MEM.init([0; 2048]);
-
-        // const BUFFER_SIZE: usize = 2048;
-        // let mut rx_buffer = [0; BUFFER_SIZE];
-        // let mut tx_buffer = [0; BUFFER_SIZE];
-
         let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, rx_buffer, tx_buffer);
         socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
 
@@ -392,7 +377,7 @@ async fn run(
         match client.connect(socket, &mqtt_connect_options, Some(MqttString::from_str("433MHz_to_MQTT").unwrap())).await {
             Ok(info) => {
                 info!("Connected to broker with: {:?}", info);
-                break;
+                //break;
             }
             Err(e) =>  {
                 error!("Other MQTT Error: {:?}", e);
@@ -401,9 +386,23 @@ async fn run(
                 // Timer::after_millis(1000).await;
             }
         }
-    }
 
-    loop {}
+        loop {
+            let msg = message_channel.receive().await;
+            let topic = unwrap!(rust_mqtt::types::TopicName::new(unwrap!(MqttString::from_str("433MHz_to_MQTT_button"))));
+            let payload = &msg.payload[..msg.len];
+            let publish_result = client.publish(
+                &rust_mqtt::client::options::PublicationOptions::new(rust_mqtt::client::options::TopicReference::Name(topic.as_borrowed())).exactly_once(),
+                payload.into(),
+            ).await;
+
+            if let Err(e) = publish_result {
+                error!("MQTT publish failed: {:?}", e);
+                client.abort().await;
+                break;
+            }
+        }
+    }
 
     // static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
     // let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));

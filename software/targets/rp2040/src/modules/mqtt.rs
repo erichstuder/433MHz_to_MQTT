@@ -25,7 +25,6 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use lib::misc::parse_ip;
 
 type MqttClient<'a> = rust_mqtt::client::Client<'a, embassy_net::tcp::TcpSocket<'a>, rust_mqtt::buffer::BumpBuffer<'a>, 8, 16, 16, 4>;
-type MqttClientMutexed<'a> = Mutex<CriticalSectionRawMutex, MqttClient<'a>>;
 
 #[derive(Copy, Clone, Format)]
 pub enum ValueId {
@@ -36,10 +35,61 @@ pub enum ValueId {
     MqttBrokerPassword,
 }
 
+// This struct serves as a workaround for the problem that tasks cannot have generic parameters.
+// For this reason the concept with Actions does not work here and the config must be updated from externally.
+pub struct Config {
+// TODO: sollen die member puglic sein?
+    pub wifi_ssid: [u8; 32],
+    pub wifi_ssid_len: Option<usize>,
+    pub wifi_password: [u8; 32],
+    pub wifi_password_len: Option<usize>,
+    pub mqtt_host_ip: [u8; 32],
+    pub mqtt_host_ip_len: Option<usize>,
+    pub mqtt_broker_username: [u8; 32],
+    pub mqtt_broker_username_len: Option<usize>,
+    pub mqtt_broker_password: [u8; 64],
+    pub mqtt_broker_password_len: Option<usize>,
+}
 
-pub trait Actions {
-    #[allow(async_fn_in_trait)]
-    async fn get(&mut self, id: ValueId, buffer: &mut [u8]) -> Option<usize>;}
+impl Config {
+    fn get_value(&self, id: ValueId, buffer: &mut [u8]) -> Option<usize> {
+        match id {
+            ValueId::WifiSsid => self.wifi_ssid_len.map(|len| {
+                buffer[..len].copy_from_slice(&self.wifi_ssid[..len]);
+                len
+            }),
+            ValueId::WifiPassword => self.wifi_password_len.map(|len| {
+                buffer[..len].copy_from_slice(&self.wifi_password[..len]);
+                len
+            }),
+            ValueId::MqttHostIp => self.mqtt_host_ip_len.map(|len| {
+                buffer[..len].copy_from_slice(&self.mqtt_host_ip[..len]);
+                len
+            }),
+            ValueId::MqttBrokerUsername => self.mqtt_broker_username_len.map(|len| {
+                buffer[..len].copy_from_slice(&self.mqtt_broker_username[..len]);
+                len
+            }),
+            ValueId::MqttBrokerPassword => self.mqtt_broker_password_len.map(|len| {
+                buffer[..len].copy_from_slice(&self.mqtt_broker_password[..len]);
+                len
+            }),
+        }
+    }
+}
+
+static CONFIG: Mutex<CriticalSectionRawMutex, Config> = Mutex::new(Config {
+    wifi_ssid: [0u8; 32],
+    wifi_ssid_len: None,
+    wifi_password: [0u8; 32],
+    wifi_password_len: None,
+    mqtt_host_ip: [0u8; 32],
+    mqtt_host_ip_len: None,
+    mqtt_broker_username: [0u8; 32],
+    mqtt_broker_username_len: None,
+    mqtt_broker_password: [0u8; 64],
+    mqtt_broker_password_len: None,
+});
 
 pub struct WifiHw<'d> {
     pub pin_23: Peri<'d, PIN_23>,
@@ -58,18 +108,17 @@ struct MqttPayload {
 
 type MessageChannel = Channel<CriticalSectionRawMutex, MqttPayload, 4>;
 
-pub struct MQTT<A, I> {
+pub struct MQTT<I> {
     message_channel: &'static MessageChannel,
-    _phantom_data: PhantomData<(A, I)>,
+    _phantom_data: PhantomData<I>,
 }
 
-impl<A: Actions, I> MQTT<A, I>
+impl<I> MQTT<I>
 where
     I: embassy_rp::interrupt::typelevel::Binding<embassy_rp::interrupt::typelevel::DMA_IRQ_0, embassy_rp::dma::InterruptHandler<DMA_CH1>> + 'static,
 {
-    pub async fn new(mut actions: A, hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Self {
+    pub async fn new(hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Self {
         let (driver, control) = Self::setup_cyw43(hw, spawner, irq).await;
-        //let network_stack = Self::setup_network(driver, spawner);
         //Self::connect_wifi(&mut actions, control, network_stack).await;
         // let client_mutexed = Self::connect_broker(&mut actions, network_stack, spawner).await;
 
@@ -122,45 +171,35 @@ where
         (driver, control)
     }
 
-    fn setup_network(driver: cyw43::NetDriver<'static>, spawner: Spawner) -> embassy_net::Stack<'static>{
-        let config = embassy_net::Config::dhcpv4(Default::default());
-        let mut rng = RoscRng;
-        let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
-        static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
-        let (network_stack, network_runner) = embassy_net::new(driver, config, RESOURCES.init(embassy_net::StackResources::new()), seed);
-        spawner.spawn(net_task(network_runner).unwrap());
-        network_stack
-    }
+    // async fn connect_wifi(actions: &mut A, mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
+    //     let mut wifi_ssid = [0u8; 32];
+    //     let mut wifi_password = [0u8; 32];
 
-    async fn connect_wifi(actions: &mut A, mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
-        let mut wifi_ssid = [0u8; 32];
-        let mut wifi_password = [0u8; 32];
+    //     loop {
+    //         let wifi_ssid_len = Self::get_valid_value(actions, ValueId::WifiSsid, &mut wifi_ssid).await;
+    //         let wifi_password_len = Self::get_valid_value(actions, ValueId::WifiPassword, &mut wifi_password).await;
+    //         match control.join(
+    //             str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
+    //             JoinOptions::new(&wifi_password[..wifi_password_len])
+    //         ).await {
+    //             Ok(_) => {
+    //                 info!("join successful");
+    //                 break
+    //             },
+    //             Err(err) => {
+    //                 // Leave immediately to prevent panic.
+    //                 control.leave().await;
+    //                 info!("join failed with status={:?}", err);
+    //             },
+    //         }
+    //     }
 
-        loop {
-            let wifi_ssid_len = Self::get_valid_value(actions, ValueId::WifiSsid, &mut wifi_ssid).await;
-            let wifi_password_len = Self::get_valid_value(actions, ValueId::WifiPassword, &mut wifi_password).await;
-            match control.join(
-                str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
-                JoinOptions::new(&wifi_password[..wifi_password_len])
-            ).await {
-                Ok(_) => {
-                    info!("join successful");
-                    break
-                },
-                Err(err) => {
-                    // Leave immediately to prevent panic.
-                    control.leave().await;
-                    info!("join failed with status={:?}", err);
-                },
-            }
-        }
-
-        info!("waiting for DHCP...");
-        while !network_stack.is_config_up() {
-            Timer::after_millis(100).await;
-        }
-        info!("DHCP is now up!");
-    }
+    //     info!("waiting for DHCP...");
+    //     while !network_stack.is_config_up() {
+    //         Timer::after_millis(100).await;
+    //     }
+    //     info!("DHCP is now up!");
+    // }
 
     // async fn connect_broker<'d>(actions: &mut A, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed<'static> {
     //     let mut mqtt_host_ip = [0u8; 32];
@@ -230,17 +269,9 @@ where
     //     return client_mutexed
     // }
 
-    // As it often makes no sense to advance if there is no valid value, we just loop until we get a valid value.
-    // This helps on first startup when no values might be stored yet.
-    // As soon as a value is available we can advance.
-    async fn get_valid_value(actions: &mut A, id: ValueId, buffer: &mut [u8]) -> usize {
-        loop {
-            if let Some(result) = actions.get(id, buffer).await {
-                return result
-            }
-            info!("Couldn't get {:?}", id);
-            Timer::after_millis(3000).await;
-        }
+    pub async fn set_config(&mut self, config: Config) {
+        let mut cfg = CONFIG.lock().await;
+        *cfg = config;
     }
 
     pub async fn send_message(&mut self, payload: &[u8]) {
@@ -263,69 +294,23 @@ async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'sta
     runner.run().await
 }
 
-// bind_interrupts!(struct DmaIrq {
-//     DMA_IRQ_0 =>
-//         embassy_rp::dma::InterruptHandler<DMA_CH1>;
-// });
-
 #[task]
 async fn run(
     spawner: Spawner,
     remote_endpoint: (Ipv4Addr, u16),
     mqtt_connect_options: rust_mqtt::client::options::ConnectOptions<'static>,
-    // mut hw: WifiHw<'static>,
-    // irq: DmaIrq,
     driver: cyw43::NetDriver<'static>,
     mut control: cyw43::Control<'static>,
     message_channel: &'static MessageChannel,
 ) -> ! {
-    // let firmware = aligned_bytes!("../../../../cyw43-firmware/43439A0.bin");
-    // let clm = aligned_bytes!("../../../../cyw43-firmware/43439A0_clm.bin");
-    // let nvram = aligned_bytes!("../../../../cyw43-firmware/nvram_rp2040.bin");
-
-    // let pwr = gpio::Output::new(hw.pin_23, gpio::Level::Low);
-    // let cs = gpio::Output::new(hw.pin_25, gpio::Level::High);
-
-    // let spi = cyw43_pio::PioSpi::new(
-    //     &mut hw.pio_1.common,
-    //     hw.pio_1.sm0,
-    //     DEFAULT_CLOCK_DIVIDER,
-    //     hw.pio_1.irq0,
-    //     cs,
-    //     hw.pin_24,
-    //     hw.pin_29,
-    //     dma::Channel::new(hw.dma_ch1, irq)
-    // );
-
-    // static CYW43_STATE: StaticCell<cyw43::State> = StaticCell::new();
-    // let cyw43_state = CYW43_STATE.init(cyw43::State::new());
-    // let (driver, mut control, runner) = cyw43::new(cyw43_state, pwr, spi, firmware, nvram).await;
-    // spawner.spawn(cyw43_task(runner).unwrap());
-
-    // control.init(clm).await;
-    // control.set_power_management(cyw43::PowerManagementMode::PowerSave).await;
-
-////
-
-    let config = embassy_net::Config::dhcpv4(Default::default());
-    let mut rng = RoscRng;
-    let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
-    static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
-    let resources = RESOURCES.init(embassy_net::StackResources::new());
-    let (network_stack, network_runner) = embassy_net::new(driver, config, resources, seed);
-    spawner.spawn(net_task(network_runner).unwrap());
-
-////
+    let network_stack = setup_network(driver, spawner);
 
     let mut wifi_ssid = [0u8; 32];
     let mut wifi_password = [0u8; 32];
 
     loop {
-        // TODO: find a solution for "actions"
-        let wifi_ssid_len = 0;
-        let wifi_password_len = 0;
-        // let wifi_ssid_len = MQTT::get_valid_value(actions, ValueId::WifiSsid, &mut wifi_ssid).await;
-        // let wifi_password_len = Self::get_valid_value(actions, ValueId::WifiPassword, &mut wifi_password).await;
+        let wifi_ssid_len = get_valid_value(ValueId::WifiSsid, &mut wifi_ssid).await;
+        let wifi_password_len = get_valid_value(ValueId::WifiPassword, &mut wifi_password).await;
         match control.join(
             str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
             JoinOptions::new(&wifi_password[..wifi_password_len])
@@ -408,6 +393,32 @@ async fn run(
     // let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
     // return client_mutexed
 }
+
+fn setup_network(driver: cyw43::NetDriver<'static>, spawner: Spawner) -> embassy_net::Stack<'static>{
+    let config = embassy_net::Config::dhcpv4(Default::default());
+    let mut rng = RoscRng;
+    let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
+    static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
+    let resources = RESOURCES.init(embassy_net::StackResources::new());
+    let (network_stack, network_runner) = embassy_net::new(driver, config, resources, seed);
+    spawner.spawn(net_task(network_runner).unwrap());
+    network_stack
+}
+
+// As it often makes no sense to advance if there is no valid value, we just loop until we get a valid value.
+// This helps on first startup when no values might be stored yet.
+// As soon as a value is available we can advance.
+async fn get_valid_value(id: ValueId, buffer: &mut [u8]) -> usize {
+    loop {
+        let c = CONFIG.lock().await;
+        if let Some(result) = c.get_value(id, buffer) {
+            return result
+        }
+        info!("Couldn't get {:?}", id);
+        Timer::after_millis(3000).await;
+    }
+}
+
 
 
 #[cfg(feature = "target-test")]

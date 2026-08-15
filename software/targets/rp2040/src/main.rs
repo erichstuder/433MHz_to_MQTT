@@ -12,6 +12,7 @@ use embassy_sync::{
     mutex::Mutex,
     blocking_mutex::raw::CriticalSectionRawMutex,
 };
+use embassy_time::Timer;
 use static_cell::StaticCell;
 use defmt::unwrap;
 use defmt_rtt as _;
@@ -124,37 +125,31 @@ impl<'d> parser::Actions for ParserActions<'d> {
 }
 
 
-struct MqttActions<'d> {
-    persistency: &'d MutexedPersistency,
-}
+// pub struct MqttActions<'d> {
+//     persistency: &'d MutexedPersistency,
+// }
 
-impl<'d> MqttActions<'d> {
-    pub fn new(persistency: &'d MutexedPersistency) -> Self {
-        Self {
-            persistency,
-        }
-    }
-}
+// impl<'d> MqttActions<'d> {
+//     pub fn new(persistency: &'d MutexedPersistency) -> Self {
+//         Self {
+//             persistency,
+//         }
+//     }
+// }
 
-impl<'d> mqtt::Actions for MqttActions<'d> {
-    async fn get(&mut self, id: mqtt::ValueId, buffer: &mut [u8]) -> Option<usize> {
-        let key = match id {
-            mqtt::ValueId::WifiSsid => persistency::Key::WifiSsid,
-            mqtt::ValueId::WifiPassword => persistency::Key::WifiPassword,
-            mqtt::ValueId::MqttHostIp => persistency::Key::MqttHostIp,
-            mqtt::ValueId::MqttBrokerUsername => persistency::Key::MqttBrokerUsername,
-            mqtt::ValueId::MqttBrokerPassword => persistency::Key::MqttBrokerPassword,
-        };
-        let mut p = self.persistency.lock().await;
-        let result = p.read(key, buffer).await;
-        if let Ok(value) = result {
-            return value;
-        }
-        else {
-            return None;
-        };
-    }
-}
+// impl<'d> mqtt::Actions for MqttActions<'d> {
+//     async fn get(&mut self, id: mqtt::ValueId, buffer: &mut [u8]) -> Option<usize> {
+//         let key = match id {
+//             mqtt::ValueId::WifiSsid => persistency::Key::WifiSsid,
+//             mqtt::ValueId::WifiPassword => persistency::Key::WifiPassword,
+//             mqtt::ValueId::MqttHostIp => persistency::Key::MqttHostIp,
+//             mqtt::ValueId::MqttBrokerUsername => persistency::Key::MqttBrokerUsername,
+//             mqtt::ValueId::MqttBrokerPassword => persistency::Key::MqttBrokerPassword,
+//         };
+//         let mut p = self.persistency.lock().await;
+//         p.read(key, buffer).await.ok().flatten()
+//     }
+// }
 
 
 bind_interrupts!(struct DmaIrq {
@@ -200,11 +195,65 @@ async fn main(spawner: Spawner) {
         dma_ch1: peripherals.DMA_CH1,
     };
 
-    let my_mqtt_actions = MqttActions::new(persistency);
-    let _mqtt = MQTT::new(my_mqtt_actions, wifi_hw, spawner, DmaIrq).await;
+    // let my_mqtt_actions = MqttActions::new(persistency);
+    let mqtt = MQTT::new(wifi_hw, spawner, DmaIrq).await;
+    spawner.spawn(unwrap!(update_mqtt_config(mqtt, persistency)));
 }
 
 #[task]
 async fn run_terminal(mut terminal: MyTerminal) -> ! {
     terminal.run().await
 }
+
+#[task]
+async fn update_mqtt_config(mut mqtt: MQTT<DmaIrq>, persistency: &'static MutexedPersistency) -> ! {
+    let mut wifi_ssid = [0u8; 32];
+    let mut wifi_ssid_len;
+    let mut wifi_password = [0u8; 32];
+    let mut wifi_password_len;
+    let mut mqtt_host_ip = [0u8; 32];
+    let mut mqtt_host_ip_len;
+    let mut mqtt_broker_username = [0u8; 32];
+    let mut mqtt_broker_username_len;
+    let mut mqtt_broker_password = [0u8; 64];
+    let mut mqtt_broker_password_len;
+
+    loop {
+        let mut p = persistency.lock().await;
+        wifi_ssid_len = p.read(persistency::Key::WifiSsid, &mut wifi_ssid).await.ok().flatten();
+        wifi_password_len = p.read(persistency::Key::WifiPassword, &mut wifi_password).await.ok().flatten();
+        mqtt_host_ip_len = p.read(persistency::Key::MqttHostIp, &mut mqtt_host_ip).await.ok().flatten();
+        mqtt_broker_username_len = p.read(persistency::Key::MqttBrokerUsername, &mut mqtt_broker_username).await.ok().flatten();
+        mqtt_broker_password_len = p.read(persistency::Key::MqttBrokerPassword, &mut mqtt_broker_password).await.ok().flatten();
+
+        let config = mqtt::Config {
+            wifi_ssid,
+            wifi_ssid_len,
+            wifi_password,
+            wifi_password_len,
+            mqtt_host_ip,
+            mqtt_host_ip_len,
+            mqtt_broker_username,
+            mqtt_broker_username_len,
+            mqtt_broker_password,
+            mqtt_broker_password_len,
+        };
+
+        mqtt.set_config(config).await;
+        Timer::after_millis(1000).await;
+    }
+}
+
+// impl<'d> mqtt::Actions for MqttActions<'d> {
+//     async fn get(&mut self, id: mqtt::ValueId, buffer: &mut [u8]) -> Option<usize> {
+//         let key = match id {
+//             mqtt::ValueId::WifiSsid => persistency::Key::WifiSsid,
+//             mqtt::ValueId::WifiPassword => persistency::Key::WifiPassword,
+//             mqtt::ValueId::MqttHostIp => persistency::Key::MqttHostIp,
+//             mqtt::ValueId::MqttBrokerUsername => persistency::Key::MqttBrokerUsername,
+//             mqtt::ValueId::MqttBrokerPassword => persistency::Key::MqttBrokerPassword,
+//         };
+//         let mut p = self.persistency.lock().await;
+//         p.read(key, buffer).await.ok().flatten()
+//     }
+// }

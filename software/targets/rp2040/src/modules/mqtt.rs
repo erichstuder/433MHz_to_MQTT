@@ -5,10 +5,7 @@ use core::marker::PhantomData;
 use defmt::{Format, info, error, unwrap};
 use embassy_executor::{task, Spawner};
 use embassy_rp::{Peri, gpio, dma};
-
-// use embassy_time::{Duration, Timer};
 use embassy_time::Timer;
-
 use embassy_net;
 use embassy_rp::clocks::RoscRng;
 use embassy_rp::pio::Pio;
@@ -119,21 +116,9 @@ where
 {
     pub async fn new(hw: WifiHw<'static>, spawner: Spawner, irq: I) -> Self {
         let (driver, control) = Self::setup_cyw43(hw, spawner, irq).await;
-        //Self::connect_wifi(&mut actions, control, network_stack).await;
-        // let client_mutexed = Self::connect_broker(&mut actions, network_stack, spawner).await;
-
-        let address = Ipv4Addr::new(1, 2, 3, 4); // TODO: use right values
-        let remote_endpoint = (address, 1883u16);
-
-        let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
-            .clean_start()
-            .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
-            .keep_alive(rust_mqtt::config::KeepAlive::Infinite)
-            .user_name(unwrap!(MqttString::from_str(str::from_utf8(b"broker_user_name").unwrap())))
-            .password(unwrap!(MqttBinary::from_slice(b"broker_password")));
 
         static MESSAGE_CHANNEL: MessageChannel = Channel::new();
-        spawner.spawn(run(spawner, remote_endpoint, mqtt_connect_options, driver, control, &MESSAGE_CHANNEL).unwrap());
+        spawner.spawn(run(spawner, driver, control, &MESSAGE_CHANNEL).unwrap());
 
         Self {
             message_channel: &MESSAGE_CHANNEL,
@@ -171,104 +156,6 @@ where
         (driver, control)
     }
 
-    // async fn connect_wifi(actions: &mut A, mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
-    //     let mut wifi_ssid = [0u8; 32];
-    //     let mut wifi_password = [0u8; 32];
-
-    //     loop {
-    //         let wifi_ssid_len = Self::get_valid_value(actions, ValueId::WifiSsid, &mut wifi_ssid).await;
-    //         let wifi_password_len = Self::get_valid_value(actions, ValueId::WifiPassword, &mut wifi_password).await;
-    //         match control.join(
-    //             str::from_utf8(&wifi_ssid[..wifi_ssid_len]).unwrap(),
-    //             JoinOptions::new(&wifi_password[..wifi_password_len])
-    //         ).await {
-    //             Ok(_) => {
-    //                 info!("join successful");
-    //                 break
-    //             },
-    //             Err(err) => {
-    //                 // Leave immediately to prevent panic.
-    //                 control.leave().await;
-    //                 info!("join failed with status={:?}", err);
-    //             },
-    //         }
-    //     }
-
-    //     info!("waiting for DHCP...");
-    //     while !network_stack.is_config_up() {
-    //         Timer::after_millis(100).await;
-    //     }
-    //     info!("DHCP is now up!");
-    // }
-
-    // async fn connect_broker<'d>(actions: &mut A, network_stack: embassy_net::Stack<'static>, spawner: Spawner) -> &'static MqttClientMutexed<'static> {
-    //     let mut mqtt_host_ip = [0u8; 32];
-    //     let mut mqtt_broker_username = [0u8; 32];
-    //     let mut mqtt_broker_password = [0u8; 64];
-
-    //     let mqtt_host_ip_len = Self::get_valid_value(actions, ValueId::MqttHostIp, &mut mqtt_host_ip).await;
-    //     let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip[..mqtt_host_ip_len]).unwrap();
-    //     let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
-    //     let remote_endpoint = (address, 1883u16);
-    //     let mqtt_broker_username_len = Self::get_valid_value(actions, ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
-    //     let mqtt_broker_password_len = Self::get_valid_value(actions, ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
-    //     let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
-    //         .clean_start()
-    //         .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
-    //         .keep_alive(rust_mqtt::config::KeepAlive::Infinite)
-    //         .user_name(unwrap!(MqttString::from_str(str::from_utf8(&mqtt_broker_username[..mqtt_broker_username_len]).unwrap())))
-    //         .password(unwrap!(MqttBinary::from_slice(&mqtt_broker_password[..mqtt_broker_password_len])));
-
-    //     static MQTT_BUMP_MEM: StaticCell<[u8; 2048]> = StaticCell::new();
-    //     static MQTT_BUMP: StaticCell<rust_mqtt::buffer::BumpBuffer<'static>> = StaticCell::new();
-    //     let bump_mem = MQTT_BUMP_MEM.init([0; 2048]);
-    //     let bump = MQTT_BUMP.init(rust_mqtt::buffer::BumpBuffer::new(bump_mem));
-    //     let mut client = rust_mqtt::client::Client::new(bump);
-
-    //     // return client;
-
-    //     // const BUFFER_SIZE: usize = 2048;
-    //     // static RX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
-    //     // static TX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
-    //     // let rx_buffer = RX_BUFFER.init([0; BUFFER_SIZE]);
-    //     // let tx_buffer = TX_BUFFER.init([0; BUFFER_SIZE]);
-
-    //     loop {
-    //         const BUFFER_SIZE: usize = 2048;
-    //         let mut rx_buffer = [0; BUFFER_SIZE];
-    //         let mut tx_buffer = [0; BUFFER_SIZE];
-
-    //         let mut socket = embassy_net::tcp::TcpSocket::new(network_stack, &mut rx_buffer, &mut tx_buffer);
-    //         socket.set_timeout(Some(embassy_time::Duration::from_secs(100)));
-
-    //         loop {
-    //             if let Err(e) = socket.connect(remote_endpoint).await {
-    //                 info!("connect error: {:?}", e);
-    //                 Timer::after_millis(1000).await;
-    //                 continue
-    //             }
-    //             break
-    //         };
-
-    //         match client.connect(socket, &mqtt_connect_options, Some(MqttString::from_str("433MHz_to_MQTT").unwrap())).await {
-    //             Ok(info) => {
-    //                 info!("Connected to broker with: {:?}", info);
-    //                 break;
-    //             }
-    //             Err(e) =>  {
-    //                 client.abort().await;
-    //                 error!("Other MQTT Error: {:?}", e);
-    //                 Timer::after_millis(1000).await;
-    //                 continue;
-    //             }
-    //         }
-    //     }
-
-    //     static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
-    //     let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
-    //     return client_mutexed
-    // }
-
     pub async fn set_config(&mut self, config: Config) {
         let mut cfg = CONFIG.lock().await;
         *cfg = config;
@@ -295,16 +182,24 @@ async fn net_task(mut runner: embassy_net::Runner<'static, cyw43::NetDriver<'sta
 }
 
 #[task]
-async fn run(
-    spawner: Spawner,
-    remote_endpoint: (Ipv4Addr, u16),
-    mqtt_connect_options: rust_mqtt::client::options::ConnectOptions<'static>,
-    driver: cyw43::NetDriver<'static>,
-    mut control: cyw43::Control<'static>,
-    message_channel: &'static MessageChannel,
-) -> ! {
+async fn run(spawner: Spawner, driver: cyw43::NetDriver<'static>, control: cyw43::Control<'static>, message_channel: &'static MessageChannel) -> ! {
     let network_stack = setup_network(driver, spawner);
+    connect_wifi(control, network_stack).await;
+    connect_and_handle_broker(network_stack, message_channel).await;
+}
 
+fn setup_network(driver: cyw43::NetDriver<'static>, spawner: Spawner) -> embassy_net::Stack<'static>{
+    let config = embassy_net::Config::dhcpv4(Default::default());
+    let mut rng = RoscRng;
+    let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
+    static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
+    let resources = RESOURCES.init(embassy_net::StackResources::new());
+    let (network_stack, network_runner) = embassy_net::new(driver, config, resources, seed);
+    spawner.spawn(net_task(network_runner).unwrap());
+    network_stack
+}
+
+async fn connect_wifi(mut control: cyw43::Control<'static>, network_stack: embassy_net::Stack<'static>) {
     let mut wifi_ssid = [0u8; 32];
     let mut wifi_password = [0u8; 32];
 
@@ -332,9 +227,25 @@ async fn run(
         Timer::after_millis(100).await;
     }
     info!("DHCP is now up!");
+}
 
-////
+async fn connect_and_handle_broker<'d>(network_stack: embassy_net::Stack<'static>, message_channel: &'static MessageChannel) -> !{
+    let mut mqtt_host_ip = [0u8; 32];
+    let mqtt_host_ip_len = get_valid_value(ValueId::MqttHostIp, &mut mqtt_host_ip).await;
+    let (ip0, ip1, ip2, ip3) = parse_ip(&mqtt_host_ip[..mqtt_host_ip_len]).unwrap();
+    let address = Ipv4Addr::new(ip0, ip1, ip2, ip3);
+    let remote_endpoint = (address, 1883u16);
 
+    let mut mqtt_broker_username = [0u8; 32];
+    let mut mqtt_broker_password = [0u8; 64];
+    let mqtt_broker_username_len = get_valid_value(ValueId::MqttBrokerUsername, &mut mqtt_broker_username).await;
+    let mqtt_broker_password_len = get_valid_value(ValueId::MqttBrokerPassword, &mut mqtt_broker_password).await;
+    let mqtt_connect_options = rust_mqtt::client::options::ConnectOptions::new()
+        .clean_start()
+        .session_expiry_interval(rust_mqtt::config::SessionExpiryInterval::NeverEnd)
+        .keep_alive(rust_mqtt::config::KeepAlive::Infinite)
+        .user_name(unwrap!(MqttString::from_str(str::from_utf8(&mqtt_broker_username[..mqtt_broker_username_len]).unwrap())))
+        .password(unwrap!(MqttBinary::from_slice(&mqtt_broker_password[..mqtt_broker_password_len])));
 
     const BUFFER_SIZE: usize = 2048;
     static RX_BUFFER: StaticCell<[u8; BUFFER_SIZE]> = StaticCell::new();
@@ -365,10 +276,10 @@ async fn run(
                 //break;
             }
             Err(e) =>  {
-                error!("Other MQTT Error: {:?}", e);
                 client.abort().await;
+                error!("Other MQTT Error: {:?}", e);
+                Timer::after_millis(1000).await;
                 continue;
-                // Timer::after_millis(1000).await;
             }
         }
 
@@ -388,21 +299,6 @@ async fn run(
             }
         }
     }
-
-    // static CLIENT_MUTEXED: StaticCell<MqttClientMutexed> = StaticCell::new();
-    // let client_mutexed = CLIENT_MUTEXED.init(Mutex::new(client));
-    // return client_mutexed
-}
-
-fn setup_network(driver: cyw43::NetDriver<'static>, spawner: Spawner) -> embassy_net::Stack<'static>{
-    let config = embassy_net::Config::dhcpv4(Default::default());
-    let mut rng = RoscRng;
-    let seed = rng.next_u64(); // TODO: dont know why the seed is important. couldn't it be a constant?
-    static RESOURCES: StaticCell<embassy_net::StackResources<3>> = StaticCell::new();
-    let resources = RESOURCES.init(embassy_net::StackResources::new());
-    let (network_stack, network_runner) = embassy_net::new(driver, config, resources, seed);
-    spawner.spawn(net_task(network_runner).unwrap());
-    network_stack
 }
 
 // As it often makes no sense to advance if there is no valid value, we just loop until we get a valid value.
@@ -418,7 +314,6 @@ async fn get_valid_value(id: ValueId, buffer: &mut [u8]) -> usize {
         Timer::after_millis(3000).await;
     }
 }
-
 
 
 #[cfg(feature = "target-test")]
